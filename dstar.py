@@ -69,9 +69,9 @@ class PathPlanner:
         for x, y in zip(repulsions_x, repulsions_y):
             self.environment.grid[y][x]['k'] = self.environment.grid[y][x]['k'] + array[y][x] if self.environment.grid[y][x]['k'] is not None else self.environment.grid[y][x]['k']
 
-    def square(self):
+    def square_repulsion(self):
         offsets = []
-        moves = [i for i in range(-1 * self.repulsion_distance, self.repulsion_distance, 1)]
+        moves = [i for i in range(-1 * self.repulsion_distance, self.repulsion_distance + 1, 1)]
         for i in moves:
             for j in moves:
                 if i == 0 and j == 0:
@@ -83,7 +83,7 @@ class PathPlanner:
     def add_repulsion_penalty(self):
         for obstacle_id in self.environment.obstacles:
             obstacle_x, obstacle_y, obstacle_dx, obstacle_dy = self.environment.obstacles[obstacle_id]
-            for dx, dy in self.square():
+            for dx, dy in self.square_repulsion():
                 index_x, index_y = obstacle_x - dx, obstacle_y - dy
                 if self.is_inside_grid(index_x, index_y):
                     self.environment.grid[index_y][index_x]['k'] = self.environment.grid[index_y][index_x]['k'] + self.repulsion_penalty if self.environment.grid[index_y][index_x]['k'] is not None else self.environment.grid[index_y][index_x]['k']
@@ -105,62 +105,117 @@ class PathPlanner:
                     y = self.open[0]['y']
         self.add_repulsion_penalty()
 
-    def is_valid(self, x, y):
-        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
+    # def is_valid(self, x, y):
+    #     return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
 
-    def distance(self, x1, y1, x2, y2):
-        return math.sqrt(((x1 - x2) ** 2) + ((y1 - y2) ** 2))
+    # def distance(self, x1, y1, x2, y2):
+    #     return math.sqrt(((x1 - x2) ** 2) + ((y1 - y2) ** 2))
 
-    def get_future_moves(self, x, y):
-        future_xykd = [[x + dx, y + dy, self.environment.grid[y + dy][x + dx]['k'], self.distance(self.environment.end_x, self.environment.end_y, x + dx, y + dy)] for dx, dy, _ in self.moves_xyc if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy)]
-        future_xykd.sort(key=lambda a: (a[2], a[3]))
-        return future_xykd
+    # def get_future_moves(self, x, y, path):
+    #     future_xykd = [[x + dx, y + dy, self.environment.grid[y + dy][x + dx]['k'], self.distance(self.environment.end_x, self.environment.end_y, x + dx, y + dy)] for dx, dy, _ in self.moves_xyc if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and not self.is_in_path(x + dx, y + dy, path)]
+    #     future_xykd.sort(key=lambda a: (a[2], a[3]))
+    #     return future_xykd
 
-    def is_in_path(self, x, y, path):
-        for current_x, current_y in path:
-            if x == path[(current_x, current_y)][0] and y == path[(current_x, current_y)][1]:
-                return True
-        return False
+    # def is_in_path(self, x, y, path):
+    #     for current_x, current_y in path:
+    #         if x == current_x and y == current_y:
+    #             return True
+    #     return False
 
-    def recursive_path_finder(self, current_x, current_y, path):
-        print('PATH:', path)
-        print('===============================================================')
-        print('CURRENT:', current_x, current_y)
-        self.environment.plot_environment(list(path.keys()))
-        if current_x == self.environment.end_x and current_y == self.environment.end_y:
-            path[(current_x, current_y)] = []
-            return path
-        else:
-            future_xykd = self.get_future_moves(current_x, current_y)
-            print('FUTURE:', future_xykd)
-            if len(future_xykd) == 0:
-                [past_x, past_y], past_xykd = path.popitems()
-                past_xykd.remove([current_x, current_y])
-                path[[past_x, past_y]] = past_xykd
-                current_x, current_y = past_xykd[0]
-                self.recursive_path_finder(current_x, current_y, path)
-            else:
-                path[(current_x, current_y)] = future_xykd
-                current_x, current_y, _, _ = future_xykd[0]
-                return self.recursive_path_finder(current_x, current_y, path)
+    # def recursive_path_finder(self, child_x, child_y, path):
+    #     print('PATH:', path.keys())
+    #     print('===============================================================')
+    #     print('CHILD:', child_x, child_y)
+    #     self.environment.plot_environment(list(path.keys()))
+    #     if child_x == self.environment.end_x and child_y == self.environment.end_y:
+    #         path[(child_x, child_y)] = []
+    #         return path
+    #     else:
+    #         future_xykd = self.get_future_moves(child_x, child_y, path)
+    #         print('FUTURE:', future_xykd)
+    #         if len(future_xykd) != 0:
+    #             path[(child_x, child_y)] = future_xykd
+    #             future_x, future_y, _, _ = future_xykd[0]
+    #             return self.recursive_path_finder(future_x, future_y, path)
+    #         else:
+    #             (past_x, past_y), past_xykd = path.popitem()
+    #             print('PAST:', past_x, past_y, past_xykd)
+    #             past_xykd.pop(0)
+    #             print('PAST:', past_x, past_y, past_xykd)
+    #             # if len(past_xykd) != 0:
+    #             #     path[(past_x, past_y)] = past_xykd
+    #             #     current_x, current_y, _, _ = past_xykd[0]
+    #             # else:
+    #             self.recursive_path_finder(child_x, child_y, path)
+
+    # def raw_path_finder(self):
+    #     path = {}
+    #     path = self.recursive_path_finder(self.environment.robot_x, self.environment.robot_y, path)
+    #     return path
 
     def raw_path_finder(self):
-        path = {}
-        path = self.recursive_path_finder(self.environment.robot_x, self.environment.robot_y, path)
+        path = [[self.environment.start_x, self.environment.start_y]]
+        deadends = []
+        x, y = self.environment.start_x, self.environment.start_y
+        while x != self.environment.end_x or y != self.environment.end_y:
+            if len(path) == 0:
+                return path
+            best_moves = []
+            for dx, dy, _ in self.moves_xyc:
+                index_x = x + dx
+                index_y = y + dy
+                if self.is_inside_grid(index_x, index_y):
+                    if self.environment.grid[index_y][index_x]['k'] < self.obstacle_penalty and not self.environment.grid[index_y][index_x]['obstacle'] and [index_x, index_y] not in path and [index_x, index_y] not in deadends:
+                        best_moves.append([index_x, index_y, self.environment.grid[index_y][index_x]['k']])
+            if len(best_moves) > 0:
+                best_moves.sort(key=lambda a: a[-1])
+                x, y, _ = best_moves[0]
+                path.append([x, y])
+            else:
+                deadends.append([x, y])
+                if [x, y] in path:
+                    path.remove([x, y])
         return path
+
+    # def remove_knots_from_path(self, path):
+    #     new_path = []
+    #     forward_index = 0
+    #     forward_x, forward_y = path[forward_index]
+    #     while True:
+    #         new_path.append([forward_x, forward_y])
+    #         if forward_x == self.environment.end_x and forward_y == self.environment.end_y:
+    #             return new_path
+    #         else:
+    #             reverse_path = path[:forward_index + 1:-1]
+    #             hit = False
+    #             for reverse_index, (reverse_x, reverse_y) in enumerate(reverse_path):
+    #                 if forward_x - reverse_x in [x for x, _, _ in self.moves_xyc] and forward_y - reverse_y in [y for _, y, _ in self.moves_xyc]:
+    #                     hit = True
+    #                     break
+    #             if hit:
+    #                 forward_index = len(path) - 1 - reverse_index
+    #                 forward_x, forward_y = reverse_x, reverse_y
+    #             else:
+    #                 forward_index = forward_index + 1
+    #                 forward_x, forward_y = path[forward_index]
 
     def remove_knots_from_path(self, path):
         new_path = []
         forward_index = 0
         forward_x, forward_y = path[forward_index]
-        while forward_x != self.environment.end_x or forward_y != self.environment.end_y:
+        while True:
             new_path.append([forward_x, forward_y])
-            reverse_path = path[:forward_index + 1:-1]
-            for reverse_index, (reverse_x, reverse_y) in enumerate(reverse_path):
-                if forward_x - reverse_x in [x for x, _, _ in self.moves_xyc] and forward_y - reverse_y in [y for _, y, _ in self.moves_xyc]:
-                    new_path.append([reverse_x, reverse_y])
-                    forward_index = len(path) - 1 - reverse_index
-                    break
-            forward_index = forward_index + 1
-            forward_x, forward_y = path[forward_index]
-        return new_path
+            if forward_x != self.environment.end_x or forward_y != self.environment.end_y:
+                reverse_path = path[:forward_index + 1:-1]
+                for reverse_index, (reverse_x, reverse_y) in enumerate(reverse_path):
+                    if forward_x - reverse_x in [x for x, _, _ in self.moves_xyc] and forward_y - reverse_y in [y for _, y, _ in self.moves_xyc]:
+                        new_path.append([reverse_x, reverse_y])
+                        forward_index = len(path) - 1 - reverse_index
+                        break
+                forward_index = forward_index + 1
+                forward_x, forward_y = path[forward_index]
+            else:
+                return new_path
+
+    def plan_dubins_path(self, segment):
+        pass

@@ -1,4 +1,3 @@
-import math
 import dstar
 import random as rn
 import environment
@@ -12,18 +11,18 @@ if __name__ == '__main__':
     END_X, END_Y = 10, 0
     DISPLAY = 'all'
     OBSTACLE_PENALTY = 100.0
-    REPULSION_DISTANCE = 2
-    REPULSION_PENALTY = 2.0
+    REPULSION_DISTANCE = 1
+    REPULSION_PENALTY = 5.0
     # STATIC OBSTACLES
-    # OBSTACLES_X, OBSTACLES_Y = [8, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19], [16, 17, 18, 15, 16, 14, 15, 13, 14, 12, 13, 11, 12, 10, 11, 9, 10, 8, 9, 7, 8, 6, 7, 5, 6]
-    # OBSTACLES_DX, OBSTACLES_DY = [0 for _ in OBSTACLES_X], [0 for _ in OBSTACLES_Y]
+    OBSTACLES_X, OBSTACLES_Y = [2, 2, 3, 3, 4, 4, 5, 5, 9, 9, 10, 10, 11, 11, 14, 14, 15, 15, 15, 15, 16, 16, 17, 17, 5, 5, 5, 6, 6, 6, 7, 7, 7], [4, 5, 4, 5, 1, 2, 1, 2, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6, 11, 12, 11, 12, 11, 12, 9, 10, 11, 9, 10, 11, 9, 10, 11]
+    OBSTACLES_DX, OBSTACLES_DY = [0 for _ in OBSTACLES_X], [0 for _ in OBSTACLES_Y]
     # DYNAMIC OBSTACLES
     # OBSTACLES_X, OBSTACLES_Y = [0, 0], [3, 4]
     # OBSTACLES_DX, OBSTACLES_DY = [1, 1], [0, 1]
     # RANDOM STATIC OBSTACLES
-    OBSTACLES = 100
-    OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
-    OBSTACLES_DX, OBSTACLES_DY = [0 for _ in range(OBSTACLES)], [0 for _ in range(OBSTACLES)]
+    # OBSTACLES = 50
+    # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
+    # OBSTACLES_DX, OBSTACLES_DY = [0 for _ in range(OBSTACLES)], [0 for _ in range(OBSTACLES)]
     # RANDOM DYNAMIC OBSTACLES
     # OBSTACLES = 2
     # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
@@ -51,11 +50,13 @@ if __name__ == '__main__':
     environment.put_obstacles(OBSTACLES_X, OBSTACLES_Y, OBSTACLES_DX, OBSTACLES_DY)
 
     planner.calculate_cost_and_heuristics()
+    environment.plot_environment()
     path = planner.raw_path_finder()
-    # print('RAW:', path)
-    # path = planner.remove_knots_from_path(path)
-    # print('CLEAN:', path)
-    # environment.plot_environment()
+    print('RAW:', path, end='\n=================================================================\n')
+    environment.plot_environment(path)
+    path = planner.remove_knots_from_path(path)
+    print('CLEAN:', path)
+    environment.plot_environment(path)
 
     # for x, y in path[1:]:
     #     environment.plot_environment(path)
