@@ -1,4 +1,5 @@
 import math
+import dubin
 import numpy as np
 
 class PathPlanner:
@@ -95,7 +96,7 @@ class PathPlanner:
         self.environment.grid[y][x]['b'] = None
         self.open.append(self.environment.grid[y][x])
         while True:
-            if any([i['x'] == self.environment.start_x and i['y'] == self.environment.start_y for i in self.closed]):
+            if any([i['x'] == self.environment.robot_x and i['y'] == self.environment.robot_y for i in self.closed]):
                 break
             else:
                 top_node = self.expand(x, y)
@@ -105,8 +106,8 @@ class PathPlanner:
                     y = self.open[0]['y']
         self.add_repulsion_penalty()
 
-    # def is_valid(self, x, y):
-    #     return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
+    def is_valid(self, x, y):
+        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
 
     # def distance(self, x1, y1, x2, y2):
     #     return math.sqrt(((x1 - x2) ** 2) + ((y1 - y2) ** 2))
@@ -153,29 +154,50 @@ class PathPlanner:
     #     path = self.recursive_path_finder(self.environment.robot_x, self.environment.robot_y, path)
     #     return path
 
-    def raw_path_finder(self):
-        path = [[self.environment.start_x, self.environment.start_y]]
-        deadends = []
-        x, y = self.environment.start_x, self.environment.start_y
-        while x != self.environment.end_x or y != self.environment.end_y:
-            if len(path) == 0:
-                return path
-            best_moves = []
-            for dx, dy, _ in self.moves_xyc:
-                index_x = x + dx
-                index_y = y + dy
-                if self.is_inside_grid(index_x, index_y):
-                    if self.environment.grid[index_y][index_x]['k'] < self.obstacle_penalty and not self.environment.grid[index_y][index_x]['obstacle'] and [index_x, index_y] not in path and [index_x, index_y] not in deadends:
-                        best_moves.append([index_x, index_y, self.environment.grid[index_y][index_x]['k']])
-            if len(best_moves) > 0:
-                best_moves.sort(key=lambda a: a[-1])
-                x, y, _ = best_moves[0]
-                path.append([x, y])
-            else:
-                deadends.append([x, y])
-                if [x, y] in path:
-                    path.remove([x, y])
-        return path
+    def find_valid_neighbours(self, x, y, path):
+        neighbours = []
+        for dx, dy, _ in self.moves_xyc:
+            index_x, index_y = x + dx, y + dy
+            if self.is_inside_grid(index_x, index_y) and self.is_valid(index_x, index_y) and [index_x, index_y] not in path:
+                neighbours.append([index_x, index_y])
+        neighbours.sort(key=lambda a: self.environment.grid[a[1]][a[0]]['k'])
+        return neighbours
+
+    def raw_paths_finder(self, all_expanding_indices: list):
+        paths = {}
+        for neighbour_index in range(len(self.moves_xyc)):
+            path = []
+            current_x, current_y = self.environment.robot_x, self.environment.robot_y
+            counter = 0
+            while True:
+                path.append([current_x, current_y])
+                if current_x == self.environment.end_x and current_y == self.environment.end_y:
+                    paths[neighbour_index] = path
+                    break
+                else:
+                    neighbours = self.find_valid_neighbours(current_x, current_y, path)
+                    if len(neighbours) != 0:
+                        if len(neighbours) > neighbour_index and counter in all_expanding_indices:
+                            current_x, current_y = neighbours[neighbour_index]
+                        else:
+                            current_x, current_y = neighbours[0]
+                        counter = counter + 1
+                    else:
+                        break
+        return paths
+
+    def calculate_path_cost(self, path):
+        return sum([self.environment.grid[y][x]['k'] for x, y in path])
+
+    def choose_best_path(self, costs: dict, paths: dict):
+        assert len(costs) == len(paths)
+        min_cost = float('inf')
+        best_path = None
+        for key in costs:
+            if costs[key] < min_cost:
+                min_cost = costs[key]
+                best_path = paths[key]
+        return best_path
 
     # def remove_knots_from_path(self, path):
     #     new_path = []
@@ -217,5 +239,27 @@ class PathPlanner:
             else:
                 return new_path
 
-    def plan_dubins_path(self, segment):
-        pass
+    def plan_dubins_path(self, path, window_size, strides, curvature):
+        dubins_path = []
+        print(path)
+        for start_index in range(0, len(path), strides):
+            start_x, start_y = path[start_index]
+            start_yaw = math.atan2(path[start_index + 1][1] - start_y, path[start_index + 1][0] - start_x)
+            end_index = start_index + window_size - 1
+            if end_index >= len(path) - 1:
+                end_index = len(path) - 1
+                end_x, end_y = path[end_index]
+                end_yaw = math.atan2(self.environment.end_dy, self.environment.end_dx)
+            else:
+                end_x, end_y = path[end_index]
+                end_yaw = math.atan2(path[end_index + 1][1] - end_y, path[end_index + 1][0] - end_x)
+            path_x, path_y, path_yaw, mode, lengths = dubin.plan_dubins_path(start_x, start_y, start_yaw, end_x, end_y, end_yaw, curvature)
+            dubins_path = dubins_path + [[x, y] for x, y in zip(path_x.tolist(), path_y.tolist())]
+        return dubins_path
+
+    def does_path_hit_obstacles(self, path):
+        print('DUBINS PATH:', path)
+        for x_path, y_path in path:
+            if self.environment.grid[y_path][x_path]['obstacle']:
+                return False
+        return True

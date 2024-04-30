@@ -53,9 +53,11 @@ class Environment:
             print('wwwwwwwwwwwwwwwwwwwwwwwwwww', self.robot_x, self.robot_y, 'fefffefefefefefefef', self.robot_dx, self.robot_dy)
             self.grid[y][x]['robot_movement'] = [self.robot_dx, self.robot_dy]
 
-    def put_end(self, end_x: int, end_y: int):
+    def put_end(self, end_x: int, end_y: int, end_dx: int, end_dy: int):
         self.end_x = end_x
         self.end_y = end_y
+        self.end_dx = end_dx
+        self.end_dy = end_dy
         self.grid[self.end_y][self.end_x]['end'] = True
 
     def remove_end(self):
@@ -142,25 +144,31 @@ class Environment:
             text = text + '|\n'
         return text
 
-    def plot_environment(self, path=None):
+    def plot_environment(self, paths):
         fig, ax = plt.subplots(1, 1, figsize=(15, 15))
         for i in range(self.grid_h):
             for j in range(self.grid_w):
                 if self.grid[i][j]['obstacle']:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='black'))
                     ax.annotate('', (j + 0.5, i + 0.5), (j + 0.5 + self.grid[i][j]['obstacle_movement'][0], i + 0.5 + self.grid[i][j]['obstacle_movement'][1]), arrowprops={'color': 'pink', 'arrowstyle': '<-'})
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else "NONE"}', horizontalalignment='center', verticalalignment='center', color='white')
+                    # ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else "NONE"}', horizontalalignment='center', verticalalignment='center', color='white')
                 elif not self.grid[i][j]['obstacle'] and not self.grid[i][j]['start'] and not self.grid[i][j]['end'] and not self.grid[i][j]['robot']:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='white'))
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else "NONE"}', horizontalalignment='center', verticalalignment='center', color='black')
+                    # ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else "NONE"}', horizontalalignment='center', verticalalignment='center', color='black')
         # Plot start, robot, end, obstacles
         ax.add_patch(plt.Rectangle((self.start_x, self.start_y), 1, 1, color='green'))
         ax.add_patch(plt.Rectangle((self.end_x, self.end_y), 1, 1, color='red'))
+        ax.annotate('', (self.end_x + 0.5, self.end_y + 0.5), (self.end_x + 0.5 + self.end_dx, self.end_y + 0.5 + self.end_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
         ax.add_patch(plt.Rectangle((self.robot_x + 0.25, self.robot_y + 0.25), 0.5, 0.5, color='yellow'))
         ax.annotate('', (self.robot_x + 0.5, self.robot_y + 0.5), (self.robot_x + 0.5 + self.robot_dx, self.robot_y + 0.5 + self.robot_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
-        if path is not None:
-            ax.plot([x + 0.5 for x, y in path], [y + 0.5 for x, y in path], c='purple')
-            ax.scatter([x + 0.5 for x, y in path], [y + 0.5 for x, y in path], c='blue')
+        if isinstance(paths, dict):
+            for key in paths:
+                ax.plot([x + 0.5 for x, y in paths[key]], [y + 0.5 for x, y in paths[key]], label=f'{key}')
+                ax.scatter([x + 0.5 for x, y in paths[key]], [y + 0.5 for x, y in paths[key]], label=f'{key}')
+            ax.legend(loc='best')
+        elif isinstance(paths, list):
+            ax.plot([x + 0.5 for x, y in paths], [y + 0.5 for x, y in paths], c='violet')
+            ax.scatter([x + 0.5 for x, y in paths], [y + 0.5 for x, y in paths], c='blue')
         # Set axis limits and aspect
         ax.set_xlim(0, self.grid_w)
         ax.set_ylim(0, self.grid_h)

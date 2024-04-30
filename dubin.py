@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import math
 import numpy as np
-from scipy.spatial.transform import Rotation as Rot
+from scipy.spatial.transform import Rotation
 
 
 def rot_mat_2d(angle):
@@ -22,7 +22,7 @@ def rot_mat_2d(angle):
 
 
     """
-    return Rot.from_euler('z', angle).as_matrix()[0:2, 0:2]
+    return Rotation.from_euler('z', angle).as_matrix()[0:2, 0:2]
 
 
 def angle_mod(x, zero_2_2pi=False, degree=False):
@@ -87,7 +87,7 @@ def angle_mod(x, zero_2_2pi=False, degree=False):
 show_animation = True
 
 
-def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=0.1, selected_types=None):
+def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=0.3, selected_types=None):
     """
     Plan dubins path
 
@@ -163,9 +163,7 @@ def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=0.1,
     local_goal_y = le_xy[1]
     local_goal_yaw = g_yaw - s_yaw
 
-    lp_x, lp_y, lp_yaw, modes, lengths = _dubins_path_planning_from_origin(
-        local_goal_x, local_goal_y, local_goal_yaw, curvature, step_size,
-        planning_funcs)
+    lp_x, lp_y, lp_yaw, modes, lengths = _dubins_path_planning_from_origin(local_goal_x, local_goal_y, local_goal_yaw, curvature, step_size, planning_funcs)
 
     # Convert a local coordinate path to the global coordinate
     rot = rot_mat_2d(-s_yaw)
@@ -292,16 +290,13 @@ def _dubins_path_planning_from_origin(end_x, end_y, end_yaw, curvature, step_siz
             b_d1, b_d2, b_d3, b_mode, best_cost = d1, d2, d3, mode, cost
 
     lengths = [b_d1, b_d2, b_d3]
-    x_list, y_list, yaw_list = _generate_local_course(lengths, b_mode,
-                                                      curvature, step_size)
+    x_list, y_list, yaw_list = _generate_local_course(lengths, b_mode, curvature, step_size)
 
     lengths = [length / curvature for length in lengths]
 
     return x_list, y_list, yaw_list, b_mode, lengths
 
-
-def _interpolate(length, mode, max_curvature, origin_x, origin_y,
-                 origin_yaw, path_x, path_y, path_yaw):
+def _interpolate(length, mode, max_curvature, origin_x, origin_y, origin_yaw, path_x, path_y, path_yaw):
     if mode == "S":
         path_x.append(origin_x + length / max_curvature * math.cos(origin_yaw))
         path_y.append(origin_y + length / max_curvature * math.sin(origin_yaw))

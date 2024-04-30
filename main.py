@@ -5,25 +5,26 @@ import environment
 if __name__ == '__main__':
     MOVEMENT = 'queen'
     GRID_W, GRID_H = 20, 20
-    START_X, START_Y = 10, 19
+    START_X, START_Y = 10, 18
     ROBOT_X, ROBOT_Y = START_X, START_Y
-    ROBOT_DX, ROBOT_DY = 0, -1
+    ROBOT_DX, ROBOT_DY = 1, 0
     END_X, END_Y = 10, 0
+    END_DX, END_DY = 1, 0
     DISPLAY = 'all'
     OBSTACLE_PENALTY = 100.0
     REPULSION_DISTANCE = 1
     REPULSION_PENALTY = 5.0
-    # STATIC OBSTACLES
-    OBSTACLES_X, OBSTACLES_Y = [2, 2, 3, 3, 4, 4, 5, 5, 9, 9, 10, 10, 11, 11, 14, 14, 15, 15, 15, 15, 16, 16, 17, 17, 5, 5, 5, 6, 6, 6, 7, 7, 7], [4, 5, 4, 5, 1, 2, 1, 2, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6, 11, 12, 11, 12, 11, 12, 9, 10, 11, 9, 10, 11, 9, 10, 11]
+    ######### STATIC OBSTACLES
+    OBSTACLES_X, OBSTACLES_Y = [2, 2, 3, 3, 4, 4, 5, 5, 9, 9, 10, 10, 11, 11, 14, 14, 15, 15, 15, 15, 16, 16, 17, 17, 5, 5, 5, 6, 6, 6, 7, 7, 7], [4, 5, 4, 5, 1, 2, 1, 2, 5, 6, 5, 6, 5, 6, 2, 3, 2, 3, 11, 12, 11, 12, 11, 12, 9, 10, 11, 9, 10, 11, 9, 10, 11]
     OBSTACLES_DX, OBSTACLES_DY = [0 for _ in OBSTACLES_X], [0 for _ in OBSTACLES_Y]
-    # DYNAMIC OBSTACLES
+    ######### DYNAMIC OBSTACLES
     # OBSTACLES_X, OBSTACLES_Y = [0, 0], [3, 4]
     # OBSTACLES_DX, OBSTACLES_DY = [1, 1], [0, 1]
-    # RANDOM STATIC OBSTACLES
+    ######### RANDOM STATIC OBSTACLES
     # OBSTACLES = 50
     # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
     # OBSTACLES_DX, OBSTACLES_DY = [0 for _ in range(OBSTACLES)], [0 for _ in range(OBSTACLES)]
-    # RANDOM DYNAMIC OBSTACLES
+    ######### RANDOM DYNAMIC OBSTACLES
     # OBSTACLES = 2
     # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
     # OBSTACLES_DX, OBSTACLES_DY = [rn.randint(-1, 1) for _ in range(OBSTACLES)], [rn.randint(-1, 1) for _ in range(OBSTACLES)]
@@ -46,17 +47,24 @@ if __name__ == '__main__':
 
     environment.put_start(START_X, START_Y)
     environment.put_robot(ROBOT_X, ROBOT_Y, ROBOT_DX, ROBOT_DY)
-    environment.put_end(END_X, END_Y)
+    environment.put_end(END_X, END_Y, END_DX, END_DY)
     environment.put_obstacles(OBSTACLES_X, OBSTACLES_Y, OBSTACLES_DX, OBSTACLES_DY)
 
     planner.calculate_cost_and_heuristics()
-    environment.plot_environment()
-    path = planner.raw_path_finder()
-    print('RAW:', path, end='\n=================================================================\n')
-    environment.plot_environment(path)
-    path = planner.remove_knots_from_path(path)
-    print('CLEAN:', path)
-    environment.plot_environment(path)
+    # environment.plot_environment([])
+    paths = planner.raw_paths_finder([0])
+    # environment.plot_environment(paths)
+    costs = {}
+    for key in paths:
+        paths[key] = planner.remove_knots_from_path(paths[key])
+        costs[key] = planner.calculate_path_cost(paths[key])
+    environment.plot_environment(paths)
+    best_path = planner.choose_best_path(costs, paths)
+    print('BEST PATH:', best_path)
+    # environment.plot_environment()
+    dubins_path = planner.plan_dubins_path(best_path, window_size=4, strides=4, curvature=1)
+    print('DUBINS PATH:', dubins_path)
+    environment.plot_environment({'A* Path': best_path, 'Dubins Path': dubins_path})
 
     # for x, y in path[1:]:
     #     environment.plot_environment(path)
