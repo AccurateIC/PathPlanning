@@ -49,7 +49,6 @@ class PathPlanner:
                             self.update_node_in_open_list(index_x, index_y, new_k)
                 else:
                     if self.environment.grid[index_y][index_x] not in self.open and self.environment.grid[index_y][index_x] not in self.closed:
-                        self.environment.grid[index_y][index_x]['h'] = self.obstacle_penalty
                         self.environment.grid[index_y][index_x]['k'] = self.obstacle_penalty
                         self.open.append(self.environment.grid[index_y][index_x])
             else:
@@ -61,6 +60,9 @@ class PathPlanner:
     def is_inside_grid(self, x, y):
         return -1 < x < self.environment.grid_w and -1 < y < self.environment.grid_h
 
+    def is_valid(self, x, y):
+        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
+
     def add_repulsion_penalty_from_numpy_array(self, array, start_value, end_value, obstacle_value):
         array = np.where(array == start_value, 0, array)
         array = np.where(array == end_value, 0, array)
@@ -70,24 +72,19 @@ class PathPlanner:
         for x, y in zip(repulsions_x, repulsions_y):
             self.environment.grid[y][x]['k'] = self.environment.grid[y][x]['k'] + array[y][x] if self.environment.grid[y][x]['k'] is not None else self.environment.grid[y][x]['k']
 
-    def square_repulsion(self):
-        offsets = []
-        moves = [i for i in range(-1 * self.repulsion_distance, self.repulsion_distance + 1, 1)]
-        for i in moves:
-            for j in moves:
-                if i == 0 and j == 0:
-                    pass
-                else:
-                    offsets.append([i, j])
-        return offsets
+    def euclidian_distance(self, x1, y1, x2, y2):
+        return math.sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2))
 
     def add_repulsion_penalty(self):
+        repulsions = [[i, j] for i in range(-1 * self.repulsion_distance, self.repulsion_distance + 1) for j in range(-1 * self.repulsion_distance, self.repulsion_distance + 1)]
+        repulsions.remove([0, 0])
         for obstacle_id in self.environment.obstacles:
             obstacle_x, obstacle_y, obstacle_dx, obstacle_dy = self.environment.obstacles[obstacle_id]
-            for dx, dy in self.square_repulsion():
-                index_x, index_y = obstacle_x - dx, obstacle_y - dy
-                if self.is_inside_grid(index_x, index_y):
-                    self.environment.grid[index_y][index_x]['k'] = self.environment.grid[index_y][index_x]['k'] + self.repulsion_penalty if self.environment.grid[index_y][index_x]['k'] is not None else self.environment.grid[index_y][index_x]['k']
+            for dx, dy in repulsions:
+                index_x, index_y = obstacle_x + dx, obstacle_y + dy
+                if self.is_inside_grid(index_x, index_y) and self.is_valid(index_x, index_y):
+                    if self.environment.grid[index_y][index_x]['k'] is not None and self.environment.grid[obstacle_x][obstacle_y]['k'] is not None:
+                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[obstacle_y][obstacle_x]['k'] - self.euclidian_distance(obstacle_x, obstacle_y, index_x, index_y) * self.repulsion_penalty
 
     def calculate_cost_and_heuristics(self):
         x, y = self.environment.end_x, self.environment.end_y
@@ -105,9 +102,6 @@ class PathPlanner:
                     x = self.open[0]['x']
                     y = self.open[0]['y']
         self.add_repulsion_penalty()
-
-    def is_valid(self, x, y):
-        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
 
     # def distance(self, x1, y1, x2, y2):
     #     return math.sqrt(((x1 - x2) ** 2) + ((y1 - y2) ** 2))
