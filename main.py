@@ -4,19 +4,18 @@ import random as rn
 import environment
 
 if __name__ == '__main__':
-    MOVEMENT = 'rook'
+    MOVEMENT = 'queen'
     GRID_W, GRID_H = 20, 20
-    ROBOT_X, ROBOT_Y = 10, 18
+    ROBOT_X, ROBOT_Y = 10, 19
     ROBOT_DX, ROBOT_DY = 0, -1
-    END_X, END_Y = 0, 0
-    END_DX, END_DY = -1, 0
+    END_X, END_Y = 10, 0
+    END_DX, END_DY = 0, -1
     DISPLAY = 'all'
     OBSTACLE_PENALTY = 300.0
     REPULSION_PENALTY = 10.0
-    DISTANCE = 1
     K_FACTOR = 0.5
     ######### STATIC OBSTACLES
-    OBSTACLES_X, OBSTACLES_Y = [3, 7, 13], [14, 4, 9]
+    OBSTACLES_X, OBSTACLES_Y = [10, 13], [5, 12]
     OBSTACLES_DX, OBSTACLES_DY = [0 for _ in OBSTACLES_X], [0 for _ in OBSTACLES_Y]
     REPULSION_DISTANCES = [2 for _ in OBSTACLES_X]
     ######### DYNAMIC OBSTACLES
@@ -52,14 +51,15 @@ if __name__ == '__main__':
 
     planner = dstar.PathPlanner(env, OBSTACLE_PENALTY, REPULSION_PENALTY)
     start = time.time()
-    planner.calculate_cost_and_heuristics_from_end_to_start(MOVEMENT, DISTANCE, K_FACTOR)
-    # planner.calculate_cost_and_heuristics_from_start_to_end(DISTANCE, K_FACTOR)
+    planner.calculate_cost_and_heuristics_from_end_to_start(MOVEMENT, K_FACTOR)
+    # planner.calculate_cost_and_heuristics_from_start_to_end(MOVEMENT, K_FACTOR)
     end = time.time()
     print(end - start)
-    env.plot_environment([])
-    # path = planner.raw_path_finder()
-    # paths = planner.raw_paths_finder([0])
-    # environment.plot_environment(path)
+    env.plot_environment()
+    path = planner.raw_path_finder(MOVEMENT)
+    env.plot_environment(path)
+    path = planner.plan_dubins_path(path, 4, 4, 1.0)
+    env.plot_environment(path)
     # costs = {}
     # for key in paths:
     #     paths[key] = planner.remove_knots_from_path(paths[key])

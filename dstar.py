@@ -29,7 +29,7 @@ class PathPlanner:
         return -1 < x < self.environment.grid_w and -1 < y < self.environment.grid_h
 
     def is_valid(self, x, y):
-        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None
+        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None and self.environment.grid[y][x]['repulsion_factor'] == 0
 
     def is_free_to_move(self, x, y):
         return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['repulsion_factor'] == 0
@@ -37,30 +37,24 @@ class PathPlanner:
     def is_never_visited(self, x, y):
         return self.environment.grid[y][x] not in self.open and self.environment.grid[y][x] not in self.closed
 
-    def get_offset(self, max_distance):
+    def get_offset_range(self, max_distance):
         return [i for i in range(-1 * max_distance, max_distance + 1, 1)]
 
-    def get_moves(self, movement: str, distance):
+    def find_neighbour_offsets(self, movement: str, max_distance: int):
         if movement == 'queen':
-            moves = [[dx, dy] for dx in self.get_offset(distance) for dy in self.get_offset(distance)]
+            moves = [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance)]
         elif movement == 'rook':
-            moves = [[dx, dy] for dx in self.get_offset(distance) for dy in self.get_offset(distance)]
+            moves = [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance)]
             for dx, dy in moves:
                 if dx != 0 and dy != 0:
                     moves.remove([dx, dy])
         elif movement == 'bishop':
-            moves = [[dx, dy] for dx in self.get_offset(distance) for dy in self.get_offset(distance)]
+            moves = [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance)]
             for dx, dy in moves:
                 if dx != dy:
                     moves.remove([dx, dy])
         moves.remove([0, 0])
         return moves
-
-    def find_neighbours_and_offsets(self, x, y, movement, distance):
-        return [[x + dx, y + dy, dx, dy] for dx, dy in self.get_moves(movement, distance)]
-
-    def find_valid_neighbours_and_offsets(self, x, y, movement, distance):
-        return [[x + dx, y + dy, dx, dy] for dx, dy in self.get_moves(movement, distance) if self.is_inside_grid(x + dx, y + dx) and self.is_valid(x + dx, y + dy)]
 
     def update_node_in_open_list(self, x, y, k):
         for index, _ in enumerate(self.open):
@@ -68,8 +62,9 @@ class PathPlanner:
                 self.open[index]['k'] = k
                 break
 
-    def expand_neighbours_from_end_to_start(self, x, y, movement, distance, k_factor):
-        for index_x, index_y, dx, dy in self.find_neighbours_and_offsets(x, y, movement, distance):
+    def expand_neighbours_from_end_to_start(self, x, y, movement, k_factor):
+        for dx, dy in self.find_neighbour_offsets(movement, 1):
+            index_x, index_y = x + dx, y + dy
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
@@ -86,13 +81,12 @@ class PathPlanner:
             else:
                 continue
         self.open = sorted(self.open, key=lambda a: (k_factor * a['k']) + ((1 - k_factor) * self.euclidian_distance(self.environment.robot_x, self.environment.robot_y, a['x'], a['y'])))
-        # self.open = sorted(self.open, key=lambda a: (a['k'], self.manhattan_distance(self.environment.robot_x, self.environment.robot_y, a['x'], a['y'])))
-        # self.open = sorted(self.open, key=lambda a: a['k'])
         top_node = self.open.pop(0)
         return top_node
 
-    def expand_neighbours_from_start_to_end(self, x, y, movement, distance, k_factor):
-        for index_x, index_y, dx, dy in self.find_neighbours_and_offsets(x, y, movement, distance):
+    def expand_neighbours_from_start_to_end(self, x, y, movement, k_factor):
+        for dx, dy in self.find_neighbour_offsets(movement, 1):
+            index_x, index_y = x + dx, y + dy
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
@@ -109,8 +103,6 @@ class PathPlanner:
             else:
                 continue
         self.open = sorted(self.open, key=lambda a: (k_factor * a['k']) + ((1 - k_factor) * self.euclidian_distance(self.environment.end_x, self.environment.end_y, a['x'], a['y'])))
-        # self.open = sorted(self.open, key=lambda a: (a['k'], self.manhattan_distance(self.environment.robot_x, self.environment.robot_y, a['x'], a['y'])))
-        # self.open = sorted(self.open, key=lambda a: a['k'])
         top_node = self.open.pop(0)
         return top_node
 
@@ -119,7 +111,7 @@ class PathPlanner:
             for x in range(self.environment.grid_w):
                 self.environment.grid[y][x]['k'] = self.environment.grid[y][x]['k'] + (self.environment.grid[y][x]['repulsion_factor'] * self.repulsion_penalty) if self.environment.grid[y][x]['k'] is not None else self.environment.grid[y][x]['k']
 
-    def calculate_cost_and_heuristics_from_end_to_start(self, movement, distance, k_factor):
+    def calculate_cost_and_heuristics_from_end_to_start(self, movement, k_factor):
         x, y = self.environment.end_x, self.environment.end_y
         self.environment.grid[y][x]['k'] = 0
         self.environment.grid[y][x]['b'] = None
@@ -128,14 +120,14 @@ class PathPlanner:
             if any([c['x'] == self.environment.robot_x and c['y'] == self.environment.robot_y for c in self.closed]):
                 break
             else:
-                top_node = self.expand_neighbours_from_end_to_start(x, y, movement, distance, k_factor)
+                top_node = self.expand_neighbours_from_end_to_start(x, y, movement, k_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
                     x = self.open[0]['x']
                     y = self.open[0]['y']
         self.add_repulsion_penalty()
 
-    def calculate_cost_and_heuristics_from_start_to_end(self, movement, distance, k_factor):
+    def calculate_cost_and_heuristics_from_start_to_end(self, movement, k_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
         self.environment.grid[y][x]['k'] = 0
         self.environment.grid[y][x]['b'] = None
@@ -144,15 +136,24 @@ class PathPlanner:
             if any([c['x'] == self.environment.end_x and c['y'] == self.environment.end_y for c in self.closed]):
                 break
             else:
-                top_node = self.expand_neighbours_from_start_to_end(x, y, movement, distance, k_factor)
+                top_node = self.expand_neighbours_from_start_to_end(x, y, movement, k_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
                     x = self.open[0]['x']
                     y = self.open[0]['y']
         self.add_repulsion_penalty()
 
-    def raw_paths_finder(self, all_expanding_indices: list):
-        paths = {}
+    def raw_path_finder(self, movement):
+        path = []
+        x, y = self.environment.robot_x, self.environment.robot_y
+        while True:
+            path.append([x, y])
+            if x == self.environment.end_x and y == self.environment.end_y:
+                break
+            neighbours = [[x + dx, y + dy] for dx, dy in self.find_neighbour_offsets(movement, 1) if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and [x + dx, y + dy] not in path]
+            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]]['k'])
+            x, y = neighbours[0]
+        return path
 
     # def calculate_path_cost(self, path):
     #     return sum([self.environment.grid[y][x]['k'] for x, y in path])
@@ -185,22 +186,22 @@ class PathPlanner:
     #         else:
     #             return new_path
 
-    # def plan_dubins_path(self, path, window_size, strides, curvature):
-    #     dubins_path = []
-    #     for start_index in range(0, len(path), strides):
-    #         start_x, start_y = path[start_index]
-    #         start_yaw = math.atan2(path[start_index + 1][1] - start_y, path[start_index + 1][0] - start_x)
-    #         end_index = start_index + window_size - 1
-    #         if end_index >= len(path) - 1:
-    #             end_index = len(path) - 1
-    #             end_x, end_y = path[end_index]
-    #             end_yaw = math.atan2(self.environment.end_dy, self.environment.end_dx)
-    #         else:
-    #             end_x, end_y = path[end_index]
-    #             end_yaw = math.atan2(path[end_index + 1][1] - end_y, path[end_index + 1][0] - end_x)
-    #         path_x, path_y, path_yaw, mode, lengths = dubin.plan_dubins_path(start_x, start_y, start_yaw, end_x, end_y, end_yaw, curvature)
-    #         dubins_path = dubins_path + [[x, y] for x, y in zip(path_x.tolist(), path_y.tolist())]
-    #     return dubins_path
+    def plan_dubins_path(self, path, window_size, strides, curvature):
+        dubins_path = []
+        for start_index in range(0, len(path), strides):
+            start_x, start_y = path[start_index]
+            start_yaw = math.atan2(path[start_index + 1][1] - start_y, path[start_index + 1][0] - start_x)
+            end_index = start_index + window_size - 1
+            if end_index >= len(path) - 1:
+                end_index = len(path) - 1
+                end_x, end_y = path[end_index]
+                end_yaw = math.atan2(self.environment.end_dy, self.environment.end_dx)
+            else:
+                end_x, end_y = path[end_index]
+                end_yaw = math.atan2(path[end_index + 1][1] - end_y, path[end_index + 1][0] - end_x)
+            path_x, path_y, path_yaw, mode, lengths = dubin.plan_dubins_path(start_x, start_y, start_yaw, end_x, end_y, end_yaw, curvature)
+            dubins_path = dubins_path + [[x, y] for x, y in zip(path_x.tolist(), path_y.tolist())]
+        return dubins_path
 
     # def does_path_hit_obstacles(self, path):
     #     for x_path, y_path in path:
