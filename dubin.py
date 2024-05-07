@@ -87,7 +87,7 @@ def angle_mod(x, zero_2_2pi=False, degree=False):
 show_animation = True
 
 
-def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=0.3, selected_types=None):
+def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=0.5, selected_types=None):
     """
     Plan dubins path
 
@@ -387,7 +387,6 @@ def plot_arrow(x, y, yaw, arrow_length=1.0,
             plt.plot(x, y, origin_point_plot_style)
 
 def main():
-    print("Dubins path planner sample start!!")
 
     start_x = 1.0  # [m]
     start_y = 1.0  # [m]
