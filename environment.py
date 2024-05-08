@@ -12,10 +12,10 @@ class Environment:
     def is_inside_grid(self, x, y):
         return -1 < x < self.grid_w and -1 < y < self.grid_h
 
-    def find_neighbours(self, x, y, distance):
+    def find_neighbour_offsets(self, x, y, distance):
         moves = [i for i in range(-1 * distance, distance + 1, 1)]
-        neighbours = [[x + dx, y + dy] for dx in moves for dy in moves]
-        neighbours.remove([x, y])
+        neighbours = [[dx, dy] for dx in moves for dy in moves]
+        neighbours.remove([0, 0])
         return neighbours
 
     def is_valid(self, x, y):
@@ -50,10 +50,9 @@ class Environment:
         self.robot_x, self.robot_y = future_x, future_y
         self.robot_dx, self.robot_dy = future_dx, future_dy
 
-    def put_repulsion(self, obstacle_x, obstacle_y, repulsion_distance):
-        for x, y in self.find_neighbours(obstacle_x, obstacle_y, repulsion_distance):
-            if self.is_inside_grid(x, y):
-                self.grid[y][x]['repulsion_factor'] = self.grid[y][x]['repulsion_factor'] + (1.0 / max(abs(obstacle_x - x), abs(obstacle_y - y)))
+    def put_repulsion(self, repulsion_x, repulsion_y, repulsion_factor):
+        if self.is_inside_grid(repulsion_x, repulsion_y):
+            self.grid[repulsion_y][repulsion_x]['repulsion_factor'] = self.grid[repulsion_y][repulsion_x]['repulsion_factor'] + repulsion_factor
 
     def put_obstacle(self, obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance):
         if self.is_inside_grid(obstacle_x, obstacle_y):
@@ -61,16 +60,22 @@ class Environment:
             self.grid[obstacle_y][obstacle_x]['obstacle_movement'] = [obstacle_dx, obstacle_dy]
         obstacle_id = max(list(self.grid_obstacles.keys())) + 1 if len(self.grid_obstacles) > 0 else 0
         self.grid_obstacles[obstacle_id] = [obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance]
-        self.put_repulsion(obstacle_x, obstacle_y, repulsion_distance)
+        for dx, dy in self.find_neighbour_offsets(obstacle_x, obstacle_y, repulsion_distance):
+            index_x, index_y = obstacle_x + dx, obstacle_y + dy
+            if self.is_inside_grid(index_x, index_y):
+                repulsion_factor = 1.0 / max(abs(dx), abs(dy))
+                self.put_repulsion(index_x, index_y, repulsion_factor)
 
     def put_obstacles(self, obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, repulsion_distances):
         for obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance in zip(obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, repulsion_distances):
             self.put_obstacle(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance)
 
-    def remove_repulsion(self, obstacle_x, obstacle_y, repulsion_distance):
-        for x, y in self.find_neighbours(obstacle_x, obstacle_y, repulsion_distance):
-            if self.is_inside_grid(x, y):
-                self.grid[y][x]['repulsion_factor'] = self.grid[y][x]['repulsion_factor'] - (1.0 / max(abs(obstacle_x - x), abs(obstacle_y - y)))
+    def remove_repulsion(self, repulsion_x, repulsion_y, repulsion_factor=0.0):
+        if self.is_inside_grid(repulsion_x, repulsion_y):
+            if repulsion_factor > 0.0:
+                self.grid[repulsion_y][repulsion_x]['repulsion_factor'] = self.grid[repulsion_y][repulsion_x]['repulsion_factor'] - repulsion_factor
+            else:
+                self.grid[repulsion_y][repulsion_x]['repulsion_factor'] = 0.0
 
     def remove_obstacle(self, obstacle_id):
         if obstacle_id in self.grid_obstacles:
@@ -78,7 +83,10 @@ class Environment:
             if self.is_inside_grid(obstacle_x, obstacle_y):
                 self.grid[obstacle_y][obstacle_x]['obstacle'] = False
                 self.grid[obstacle_y][obstacle_x]['obstacle_movement'] = [0, 0]
-            self.remove_repulsion(obstacle_x, obstacle_y, repulsion_distance)
+            for dx, dy in self.find_neighbour_offsets(obstacle_x, obstacle_y, repulsion_distance):
+                repulsion_x, repulsion_y = obstacle_x + dx, obstacle_y + dy
+                if self.is_inside_grid(repulsion_x, repulsion_y):
+                    self.remove_repulsion(repulsion_x, repulsion_y)
             self.grid_obstacles.pop(obstacle_id)
 
     def remove_obstacles(self, obstacle_ids):
@@ -91,12 +99,19 @@ class Environment:
             if self.is_inside_grid(current_x, current_y):
                 self.grid[current_y][current_x]['obstacle'] = False
                 self.grid[current_y][current_x]['obstacle_movement'] = [0, 0]
-            self.remove_repulsion(current_x, current_y, repulsion_distance)
+            for dx, dy in self.find_neighbour_offsets(current_x, current_y, repulsion_distance):
+                repulsion_x, repulsion_y = current_x + dx, current_y + dy
+                if self.is_inside_grid(repulsion_x, repulsion_y):
+                    self.remove_repulsion(repulsion_x, repulsion_y)
             future_x, future_y = current_x + dx, current_y + dy
             if self.is_inside_grid(future_x, future_y):
                 self.grid[future_y][future_x]['obstacle'] = True
                 self.grid[future_y][future_x]['obstacle_movement'] = [dx, dy]
-            self.put_repulsion(future_x, future_y, repulsion_distance)
+            for dx, dy in self.find_neighbour_offsets(future_x, future_y, repulsion_distance):
+                repulsion_x, repulsion_y = future_x + dx, future_y + dy
+                if self.is_inside_grid(repulsion_x, repulsion_y):
+                    repulsion_factor = 1.0 / max(abs(dx), abs(dy))
+                    self.put_repulsion(repulsion_x, repulsion_y, repulsion_factor)
             self.grid_obstacles[obstacle_id] = [future_x, future_y, dx, dy, repulsion_distance]
 
     def move_obstacles(self, obstacle_ids):

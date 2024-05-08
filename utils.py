@@ -1,10 +1,9 @@
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 from dstar import PathPlanner
 from environment import Environment
 
-def get_path_from_numpy_array(array, robot_value, end_value, obstacle_value, movement='queen', k_factor=0.5):
+def get_path_from_numpy_array(array, robot_value, end_value, repulsion_value, obstacle_value, movement='queen', k_factor=0.5):
     grid_h, grid_w = array.shape
     robot_y, robot_x = np.where(array == robot_value)
     robot_y, robot_x = robot_y.tolist()[0], robot_x.tolist()[0]
@@ -12,6 +11,8 @@ def get_path_from_numpy_array(array, robot_value, end_value, obstacle_value, mov
     end_y, end_x = np.where(array == end_value)
     end_y, end_x = end_y.tolist()[0], end_x.tolist()[0]
     end_dx, end_dy = 1, 0
+    repulsion_y, repulsion_x = np.where(array == repulsion_value)
+    repulsion_y, repulsion_x = repulsion_y.tolist()[0], repulsion_x.tolist()[0]
     obstacles_y, obstacles_x = np.where(array == obstacle_value)
     obstacles_y, obstacles_x = obstacles_y.tolist(), obstacles_x.tolist()
     obstacles_dx, obstacles_dy = [0 for _ in obstacles_x], [0 for _ in obstacles_y]
@@ -23,11 +24,10 @@ def get_path_from_numpy_array(array, robot_value, end_value, obstacle_value, mov
     env.plot_environment()
 
     planner = PathPlanner(env, 500, 0)
-    s = time.time()
-    planner.calculate_cost_and_heuristics_from_end_to_start(movement, k_factor)
-    # planner.add_repulsion_penalty_from_numpy_array(array, robot_value, end_value, obstacle_value)
-    e = time.time()
-    print(f'COST AND HEURISTIC TIME: {e - s}')
+    planner.calculate_cost_and_heuristics_from_end_to_robot(movement, k_factor)
+    # planner.calculate_cost_and_heuristics_from_robot_to_end(movement, k_factor)
+    # planner.calculate_angular_cost_and_heuristics_from_end_to_robot(k_factor)
+    # planner.calculate_angular_cost_and_heuristics_from_robot_to_end(k_factor)
     env.plot_environment()
     path = planner.raw_path_finder(movement)
     env.plot_environment(path)
@@ -73,13 +73,11 @@ if __name__ == '__main__':
     #     array[rn.randint(int(grid_h / 2.0), grid_h - 1), rn.randint(int(grid_h / 2.0), grid_w - 1)] = 2
     #     for _ in range(int(i * 0.2) * 2):
     #         array[rn.randint(int(grid_h / 2.0), grid_h - 1), rn.randint(int(grid_w / 2.0), grid_w - 1)] = 500
-    array = np.load('bhavya.npy')
+    array = np.load('bhavya2.npy')
     unique_values, counts = np.unique(array, return_counts=True)
     print('UNIQUE:', unique_values, counts)
-    # for i in range(array.shape[0]):
-    #     for j in range(array.shape[1]):
-    #         plt.text(j, i, f'{array[i, j]:.2f}', ha='center', va='center', color='white')
+    # plt.imshow(array)
     # plt.show()
-    get_path_from_numpy_array(array, 1, 2, 500)
+    get_path_from_numpy_array(array, 1, 2, 100)
     # path = get_path_from_numpy_array(array, 1, 2, 500, 3)
     # print(path)
