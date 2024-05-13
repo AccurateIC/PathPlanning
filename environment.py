@@ -1,5 +1,4 @@
 import node
-import random as rn
 import matplotlib.pyplot as plt
 
 class Environment:
@@ -12,7 +11,7 @@ class Environment:
     def is_inside_grid(self, x, y):
         return -1 < x < self.grid_w and -1 < y < self.grid_h
 
-    def find_neighbour_offsets(self, x, y, distance):
+    def find_neighbour_offsets(self, distance):
         moves = [i for i in range(-1 * distance, distance + 1, 1)]
         neighbours = [[dx, dy] for dx in moves for dy in moves]
         neighbours.remove([0, 0])
@@ -26,49 +25,46 @@ class Environment:
         grid_obstacles = {}
         return grid, grid_obstacles
 
-    def put_robot(self, x, y, dx, dy):
-        if self.is_inside_grid(x, y):
-            self.grid[y][x]['robot'] = True
-            self.grid[y][x]['robot_movement'] = [dx, dy]
-        self.robot_x, self.robot_y = x, y
-        self.robot_dx, self.robot_dy = dx, dy
+    def put_robot(self, robot):
+        robot_x, robot_y = robot['movement'][0]
+        robot_dx, robot_dy = robot['orientation'][0]
+        if self.is_inside_grid(robot_x, robot_y):
+            self.grid[robot_y][robot_x]['robot'] = True
+            self.grid[robot_y][robot_x]['robot_orientation'] = [robot_dx, robot_dy]
+        self.robot = robot
 
     def remove_robot(self):
+        robot_x, robot_y = self.robot['movement'][0]
         if self.is_inside_grid(self.robot_x, self.robot_y):
-            self.grid[self.robot_y][self.robot_x]['robot'] = False
-            self.grid[self.robot_y][self.robot_x]['robot_movement'] = [0, 0]
-        self.robot_x, self.robot_y = None, None
-        self.robot_dx, self.robot_dy = 0, 0
+            self.grid[robot_y][robot_x]['robot'] = False
+            self.grid[robot_y][robot_x]['robot_orientation'] = [0, 0]
+        self.robot = None
 
-    def move_robot(self, future_x, future_y, future_dx, future_dy):
-        if self.is_inside_grid(self.robot_x, self.robot_y):
-            self.grid[self.robot_y][self.robot_x]['robot'] = False
-            self.grid[self.robot_y][self.robot_x]['robot_movement'] = [0, 0]
+    def move_robot(self, timestep):
+        current_x, current_y = self.robot['movement'][timestep - 1]
+        if self.is_inside_grid(current_x, current_y):
+            self.grid[current_y][current_x]['robot'] = False
+            self.grid[current_y][current_x]['robot_orientation'] = [0, 0]
+        future_x, future_y = self.robot['movement'][timestep]
+        future_dx, future_dy = self.robot['orientation'][timestep]
         if self.is_inside_grid(future_x, future_y):
             self.grid[future_y][future_x]['robot'] = True
-            self.grid[future_y][future_x]['robot_movement'] = [future_dx, future_dy]
-        self.robot_x, self.robot_y = future_x, future_y
-        self.robot_dx, self.robot_dy = future_dx, future_dy
+            self.grid[future_y][future_x]['robot_orientation'] = [future_dx, future_dy]
 
     def put_repulsion(self, repulsion_x, repulsion_y, repulsion_factor):
         if self.is_inside_grid(repulsion_x, repulsion_y):
             self.grid[repulsion_y][repulsion_x]['repulsion_factor'] = self.grid[repulsion_y][repulsion_x]['repulsion_factor'] + repulsion_factor
 
-    def put_obstacle(self, obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance):
-        if self.is_inside_grid(obstacle_x, obstacle_y):
-            self.grid[obstacle_y][obstacle_x]['obstacle'] = True
-            self.grid[obstacle_y][obstacle_x]['obstacle_movement'] = [obstacle_dx, obstacle_dy]
-        obstacle_id = max(list(self.grid_obstacles.keys())) + 1 if len(self.grid_obstacles) > 0 else 0
-        self.grid_obstacles[obstacle_id] = [obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance]
-        for dx, dy in self.find_neighbour_offsets(obstacle_x, obstacle_y, repulsion_distance):
+    def put_repulsions(self, repulsions_x, repulsions_y, repulsions_factor):
+        for repulsion_x, repulsion_y, repulsion_factor in zip(repulsions_x, repulsions_y, repulsions_factor):
+            self.put_repulsion(repulsion_x, repulsion_y, repulsion_factor)
+
+    def put_repulsion_around(self, obstacle_x, obstacle_y, repulsion_distance):
+        for dx, dy in self.find_neighbour_offsets(repulsion_distance):
             index_x, index_y = obstacle_x + dx, obstacle_y + dy
             if self.is_inside_grid(index_x, index_y):
                 repulsion_factor = 1.0 / max(abs(dx), abs(dy))
                 self.put_repulsion(index_x, index_y, repulsion_factor)
-
-    def put_obstacles(self, obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, repulsion_distances):
-        for obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance in zip(obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, repulsion_distances):
-            self.put_obstacle(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance)
 
     def remove_repulsion(self, repulsion_x, repulsion_y, repulsion_factor=0.0):
         if self.is_inside_grid(repulsion_x, repulsion_y):
@@ -77,60 +73,76 @@ class Environment:
             else:
                 self.grid[repulsion_y][repulsion_x]['repulsion_factor'] = 0.0
 
-    def remove_obstacle(self, obstacle_id):
-        if obstacle_id in self.grid_obstacles:
-            obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, repulsion_distance = self.grid_obstacles[obstacle_id]
+    def remove_repulsions(self, repulsions_x, repulsions_y, repulsions_factor):
+        for repulsion_x, repulsion_y, repulsion_factor in zip(repulsions_x, repulsions_y, repulsions_factor):
+            self.remove_repulsion(repulsion_x, repulsion_y, repulsion_factor)
+
+    def remove_repulsion_around(self, obstacle_x, obstacle_y, repulsion_distance, repulsion_factor=0.0):
+        for dx, dy in self.find_neighbour_offsets(repulsion_distance):
+            repulsion_x, repulsion_y = obstacle_x + dx, obstacle_y + dy
+            if self.is_inside_grid(repulsion_x, repulsion_y):
+                self.remove_repulsion(repulsion_x, repulsion_y, repulsion_factor)
+
+    def put_obstacles(self, obstacles: dict):
+        for obstacle_id in obstacles:
+            obstacle = obstacles[obstacle_id]
+            self.grid_obstacles[obstacle_id] = obstacle
+            obstacle_x, obstacle_y = obstacle['movement'][0]
+            obstacle_dx, obstacle_dy = obstacle['orientation'][0]
             if self.is_inside_grid(obstacle_x, obstacle_y):
-                self.grid[obstacle_y][obstacle_x]['obstacle'] = False
-                self.grid[obstacle_y][obstacle_x]['obstacle_movement'] = [0, 0]
-            for dx, dy in self.find_neighbour_offsets(obstacle_x, obstacle_y, repulsion_distance):
-                repulsion_x, repulsion_y = obstacle_x + dx, obstacle_y + dy
-                if self.is_inside_grid(repulsion_x, repulsion_y):
-                    self.remove_repulsion(repulsion_x, repulsion_y)
-            self.grid_obstacles.pop(obstacle_id)
+                self.grid[obstacle_y][obstacle_x]['obstacle'] = True
+                self.grid[obstacle_y][obstacle_x]['obstacle_orientation'] = [obstacle_dx, obstacle_dy]
+            self.put_repulsion_around(obstacle_x, obstacle_y, obstacle['repulsion'][0])
 
-    def remove_obstacles(self, obstacle_ids):
-        for obstacle_id in obstacle_ids:
-            self.remove_obstacle(obstacle_id)
+    def remove_obstacles(self, obstacles_id: list):
+        for obstacle_id in obstacles_id:
+            if obstacle_id in self.grid_obstacles:
+                obstacle = self.grid_obstacles[obstacle_id]
+                obstacle_x, obstacle_y = obstacle['movement'][0]
+                if self.is_inside_grid(obstacle_x, obstacle_y):
+                    self.grid[obstacle_y][obstacle_x]['obstacle'] = False
+                    self.grid[obstacle_y][obstacle_x]['obstacle_orientation'] = [0, 0]
+                self.remove_repulsion_around(obstacle_x, obstacle_y, obstacle['repulsion'][0])
+                self.grid_obstacles.pop(obstacle_id)
 
-    def move_obstacle(self, obstacle_id):
-        if obstacle_id in self.grid_obstacles:
-            current_x, current_y, dx, dy, repulsion_distance = self.grid_obstacles[obstacle_id]
-            if self.is_inside_grid(current_x, current_y):
-                self.grid[current_y][current_x]['obstacle'] = False
-                self.grid[current_y][current_x]['obstacle_movement'] = [0, 0]
-            for dx, dy in self.find_neighbour_offsets(current_x, current_y, repulsion_distance):
-                repulsion_x, repulsion_y = current_x + dx, current_y + dy
-                if self.is_inside_grid(repulsion_x, repulsion_y):
-                    self.remove_repulsion(repulsion_x, repulsion_y)
-            future_x, future_y = current_x + dx, current_y + dy
-            if self.is_inside_grid(future_x, future_y):
-                self.grid[future_y][future_x]['obstacle'] = True
-                self.grid[future_y][future_x]['obstacle_movement'] = [dx, dy]
-            for dx, dy in self.find_neighbour_offsets(future_x, future_y, repulsion_distance):
-                repulsion_x, repulsion_y = future_x + dx, future_y + dy
-                if self.is_inside_grid(repulsion_x, repulsion_y):
-                    repulsion_factor = 1.0 / max(abs(dx), abs(dy))
-                    self.put_repulsion(repulsion_x, repulsion_y, repulsion_factor)
-            self.grid_obstacles[obstacle_id] = [future_x, future_y, dx, dy, repulsion_distance]
+    def move_all_obstacles(self, next_timestep):
+        for obstacle_id in self.grid_obstacles:
+            if obstacle_id in self.grid_obstacles:
+                obstacle = self.grid_obstacles[obstacle_id]
+                current_x, current_y = obstacle['movement'][next_timestep - 1]
+                if self.is_inside_grid(current_x, current_y):
+                    self.grid[current_y][current_x]['obstacle'] = False
+                    self.grid[current_y][current_x]['obstacle_orientation'] = [0, 0]
+                self.remove_repulsion_around(current_x, current_y, obstacle['repulsion'][next_timestep - 1])
+                future_x, future_y = obstacle['movement'][next_timestep]
+                future_dx, future_dy = obstacle['orientation'][next_timestep]
+                if self.is_inside_grid(future_x, future_y):
+                    self.grid[future_y][future_x]['obstacle'] = True
+                    self.grid[future_y][future_x]['obstacle_orientation'] = [future_dx, future_dy]
+                self.put_repulsion_around(future_x, future_y, obstacle['repulsion'][next_timestep])
 
-    def move_obstacles(self, obstacle_ids):
-        for obstacle_id in obstacle_ids:
-            self.move_obstacle(obstacle_id)
-
-    def put_end(self, x, y, dx, dy):
-        if self.is_inside_grid(x, y):
-            self.grid[y][x]['end'] = True
-            self.grid[y][x]['end_movement'] = [dx, dy]
-        self.end_x, self.end_y = x, y
-        self.end_dx, self.end_dy = dx, dy
+    def put_end(self, end):
+        end_x, end_y = end['movement'][0]
+        end_dx, end_dy = end['orientation'][0]
+        if self.is_inside_grid(end_x, end_y):
+            self.grid[end_y][end_x]['end'] = True
+            self.grid[end_y][end_x]['end_orientation'] = [end_dx, end_dy]
+        self.end = end
 
     def remove_end(self):
-        if self.is_inside_grid(self.end_x, self.end_y):
-            self.grid[self.end_y][self.end_x]['end'] = False
-            self.grid[self.end_y][self.end_x]['end_movement'] = [0, 0]
-        self.end_x, self.end_y = None, None
-        self.end_dx, self.end_dy = 0, 0
+        end_x, end_y = self.end['movement'][0]
+        if self.is_inside_grid(end_x, end_y):
+            self.grid[end_y][end_x]['end'] = False
+            self.grid[end_y][end_x]['end_orientation'] = [0, 0]
+        self.end = None
+
+    def put_collision(self, collision_x, collision_y):
+        if self.is_inside_grid(collision_x, collision_y):
+            self.grid[collision_y][collision_x]['collision'] = True
+
+    def put_collisions(self, collisions_x, collisions_y):
+        for collision_x, collision_y in zip(collisions_x, collisions_y):
+            self.put_collision(collision_x, collision_y)
 
     def __str__(self):
         text = ''
@@ -140,32 +152,43 @@ class Environment:
             text = text + '\n'
         return text
 
-    def plot_environment(self, paths=None):
+    def plot_environment(self, show_text=True, show_obstacle_path=True, paths=None):
         fig, ax = plt.subplots(1, 1, figsize=(10, 10))
         for i in range(self.grid_h):
             for j in range(self.grid_w):
                 if self.grid[i][j]['obstacle']:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='black'))
-                    ax.annotate('', (j + 0.5, i + 0.5), (j + 0.5 + self.grid[i][j]['obstacle_movement'][0], i + 0.5 + self.grid[i][j]['obstacle_movement'][1]), arrowprops={'color': 'pink', 'arrowstyle': '<-'})
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='white')
+                    ax.annotate('', (j + 0.5, i + 0.5), (j + 0.5 + self.grid[i][j]['obstacle_orientation'][0], i + 0.5 + self.grid[i][j]['obstacle_orientation'][1]), arrowprops={'color': 'pink', 'arrowstyle': '<-'})
+                    if show_text:
+                        ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='white')
                 elif self.grid[i][j]['robot']:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='green'))
-                    ax.annotate('', (self.robot_x + 0.5, self.robot_y + 0.5), (self.robot_x + 0.5 + self.robot_dx, self.robot_y + 0.5 + self.robot_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
+                    ax.annotate('', (j + 0.5, i + 0.5), (j + 0.5 + self.grid[i][j]['robot_orientation'][0], i + 0.5 + self.grid[i][j]['robot_orientation'][1]), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
+                    if show_text:
+                        ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
                 elif self.grid[i][j]['end']:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='red'))
-                    ax.annotate('', (self.end_x + 0.5, self.end_y + 0.5), (self.end_x + 0.5 + self.end_dx, self.end_y + 0.5 + self.end_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
+                    ax.annotate('', (j + 0.5, i + 0.5), (j + 0.5 + self.grid[i][j]['end_orientation'][0], i + 0.5 + self.grid[i][j]['end_orientation'][1]), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
+                    if show_text:
+                        ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
                 elif self.grid[i][j]['repulsion_factor'] > 0:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='grey'))
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
+                    if show_text:
+                        ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
                 else:
                     ax.add_patch(plt.Rectangle((j, i), 1, 1, color='white'))
-                    ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
+                    if show_text:
+                        ax.text(j + 0.5, i + 0.8, f'{round(self.grid[i][j]["k"], 1) if self.grid[i][j]["k"] is not None else ""}', horizontalalignment='center', verticalalignment='center', color='black')
+        if show_obstacle_path:
+            for obstacle_id in self.grid_obstacles:
+                obstacle = self.grid_obstacles[obstacle_id]
+                ax.plot([obstacle['movement'][timestep][0] + 0.5 for timestep in obstacle['movement']], [obstacle['movement'][timestep][1] + 0.5 for timestep in obstacle['movement']], label=f'obstacle_{obstacle_id}')
+                ax.scatter([obstacle['movement'][timestep][0] + 0.5 for timestep in obstacle['movement']], [obstacle['movement'][timestep][1] + 0.5 for timestep in obstacle['movement']], label=f'obstacle_{obstacle_id}')
+            ax.legend(loc='best')
         if isinstance(paths, dict):
             for key in paths:
-                ax.plot([x + 0.5 for x, y in paths[key]], [y + 0.5 for x, y in paths[key]], label=f'{key}')
-                ax.scatter([x + 0.5 for x, y in paths[key]], [y + 0.5 for x, y in paths[key]], label=f'{key}')
+                ax.plot([x + 0.5 for x, _ in paths[key] if -1 < x < self.grid_w], [y + 0.5 for _, y in paths[key] if -1 < y < self.grid_h], label=f'{key}')
+                ax.scatter([x + 0.5 for x, _ in paths[key] if -1 < x < self.grid_w], [y + 0.5 for _, y in paths[key] if -1 < y < self.grid_h], label=f'{key}')
             ax.legend(loc='best')
         elif isinstance(paths, list):
             ax.plot([x + 0.5 for x, y in paths], [y + 0.5 for x, y in paths], c='violet')
@@ -179,12 +202,3 @@ class Environment:
         ax.invert_yaxis()
         ax.grid(True, alpha=1)
         plt.show()
-
-if __name__ == '__main__':
-    env = Environment(8, 8, display=['repulsion_factor'])
-    env.put_robot(0, 0, 1, 0)
-    env.put_end(7, 7, 1, 0)
-    env.put_obstacle(3, 3, 1, 1, 2)
-    env.put_obstacle(6, 4, 1, 1, 1)
-    env.plot_environment()
-    print(env)

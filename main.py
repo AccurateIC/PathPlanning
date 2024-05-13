@@ -1,66 +1,81 @@
-import dstar
 import time
-import random as rn
+import bstar
 import environment
+import random as rn
 
 if __name__ == '__main__':
     MOVEMENT = 'queen'
-    GRID_W, GRID_H = 20, 20
-    ROBOT_X, ROBOT_Y = 10, 19
-    ROBOT_DX, ROBOT_DY = 0, -1
-    END_X, END_Y = 10, 0
-    END_DX, END_DY = 0, -1
-    DISPLAY = 'all'
-    OBSTACLE_PENALTY = 300.0
+    GRID_W, GRID_H = 8, 8
+    ROBOT = {
+        'movement': {0: [3, 7]},
+        'orientation': {0: [0, -1]}
+        }
+    END = {
+        'movement': {0: [3, 0]},
+        'orientation': {0: [0, -1]}
+        }
+    OBSTACLES = {
+        0: {
+            'movement': {0: [0, 1], 1: [1, 2], 2: [2, 3], 3: [3, 4], 4: [4, 5], 5: [5, 6], 6: [6, 7]},
+            'orientation': {0: [1, 1], 1: [1, 1], 2: [1, 1], 3: [1, 1], 4: [1, 1], 5: [1, 1], 6: [1, 1]},
+            'repulsion': {0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1}
+            },
+        }
+    OBSTACLE_PENALTY = 500.0
     REPULSION_PENALTY = 10.0
     K_FACTOR = 0.5
-    ######### STATIC OBSTACLES
-    OBSTACLES_X, OBSTACLES_Y = [10, 13], [5, 12]
-    OBSTACLES_DX, OBSTACLES_DY = [0 for _ in OBSTACLES_X], [0 for _ in OBSTACLES_Y]
-    REPULSION_DISTANCES = [2 for _ in OBSTACLES_X]
-    ######### DYNAMIC OBSTACLES
-    # OBSTACLES_X, OBSTACLES_Y = [0, 0], [3, 4]
-    # OBSTACLES_DX, OBSTACLES_DY = [1, 1], [0, 1]
-    ######### RANDOM STATIC OBSTACLES
-    # OBSTACLES = 10
-    # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
-    # OBSTACLES_DX, OBSTACLES_DY = [0 for _ in range(OBSTACLES)], [0 for _ in range(OBSTACLES)]
-    # REPULSION_DISTANCES = [1 for _ in range(OBSTACLES)]
-    ######### RANDOM DYNAMIC OBSTACLES
-    # OBSTACLES = 2
-    # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
-    # OBSTACLES_DX, OBSTACLES_DY = [rn.randint(-1, 1) for _ in range(OBSTACLES)], [rn.randint(-1, 1) for _ in range(OBSTACLES)]
-
-    if [ROBOT_X, ROBOT_Y] in [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)]:
-        index = [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)].index([ROBOT_X, ROBOT_Y])
-        OBSTACLES_X.pop(index)
-        OBSTACLES_Y.pop(index)
-        OBSTACLES_DX.pop(index)
-        OBSTACLES_DY.pop(index)
-    if [END_X, END_Y] in [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)]:
-        index = [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)].index([END_X, END_Y])
-        OBSTACLES_X.pop(index)
-        OBSTACLES_Y.pop(index)
-        OBSTACLES_DX.pop(index)
-        OBSTACLES_DY.pop(index)
 
     env = environment.Environment(GRID_H, GRID_W)
-    env.put_robot(ROBOT_X, ROBOT_Y, ROBOT_DX, ROBOT_DY)
-    env.put_end(END_X, END_Y, END_DX, END_DY)
-    env.put_obstacles(OBSTACLES_X, OBSTACLES_Y, OBSTACLES_DX, OBSTACLES_DY, REPULSION_DISTANCES)
+    env.put_robot(ROBOT)
+    env.put_end(END)
+    env.put_obstacles(OBSTACLES)
     env.plot_environment()
 
-    planner = dstar.PathPlanner(env, OBSTACLE_PENALTY, REPULSION_PENALTY)
+    planner = bstar.PathPlanner(env, OBSTACLE_PENALTY, REPULSION_PENALTY)
+    ######################################################################################
     start = time.time()
     planner.calculate_cost_and_heuristics_from_end_to_robot(MOVEMENT, K_FACTOR)
-    # planner.calculate_cost_and_heuristics_from_robot_to_end(MOVEMENT, K_FACTOR)
-    # planner.calculate_angular_cost_and_heuristics_from_end_to_robot(K_FACTOR)
-    # planner.calculate_angular_cost_and_heuristics_from_robot_to_end(K_FACTOR)
     end = time.time()
     print(end - start)
-    env.plot_environment()
-    # path = planner.raw_path_finder(MOVEMENT)
+    start = time.time()
+    path, orientation = planner.raw_path_finder_from_robot_to_end(MOVEMENT)
+    end = time.time()
+    env.robot = {'movement': path, 'orientation': orientation}
+    env.plot_environment(paths={'Robot': path})
+    ######################################################################################
+    # start = time.time()
+    # planner.calculate_cost_and_heuristics_from_robot_to_end(MOVEMENT, K_FACTOR)
+    # end = time.time()
+    # print(end - start)
+    # start = time.time()
+    # path = planner.raw_path_finder_from_end_to_robot(MOVEMENT)
+    # end = time.time()
+    # print(end - start)
     # env.plot_environment(path)
+    ######################################################################################
+    # start = time.time()
+    # planner.calculate_non_obstacle_cost_and_heuristics_from_end_to_robot(MOVEMENT, K_FACTOR)
+    # end = time.time()
+    # print(end - start)
+    # start = time.time()
+    # path = planner.raw_path_finder_from_robot_to_end(MOVEMENT)
+    # end = time.time()
+    # print(end - start)
+    # env.plot_environment(path)
+    ######################################################################################
+    # start = time.time()
+    # planner.calculate_non_obstacle_cost_and_heuristics_from_robot_to_end(MOVEMENT, K_FACTOR)
+    # end = time.time()
+    # print(end - start)
+    # start = time.time()
+    # path = planner.raw_path_finder_from_end_to_robot(MOVEMENT)
+    # end = time.time()
+    # print(end - start)
+    # env.plot_environment(path)
+    ######################################################################################
+
+    # planner.calculate_angular_cost_and_heuristics_from_end_to_robot(K_FACTOR)
+    # planner.calculate_angular_cost_and_heuristics_from_robot_to_end(K_FACTOR)
     # path = planner.plan_dubins_path(path, 4, 4, 1.0)
     # env.plot_environment(path)
     # costs = {}
@@ -75,9 +90,10 @@ if __name__ == '__main__':
     # print('DUBINS PATH:', dubins_path)
     # environment.plot_environment({'A* Path': best_path, 'Dubins Path': dubins_path})
 
-    # for x, y in best_path[1:]:
-    #     environment.plot_environment(best_path)
-    #     environment.move_obstacles(environment.obstacles, 1)
+    for timestep in range(1, len(path) - 1, 1):
+        env.move_all_obstacles(timestep)
+        env.move_robot(timestep)
+        env.plot_environment(paths={'Robot': path})
         # print(environment.robot_x, environment.robot_y, environment.robot_dx, environment.robot_dy)
         # print('lllllllllllllllllllllll', x, y)
         # environment.move_robot(x, y)
