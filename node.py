@@ -1,16 +1,18 @@
 class Node:
-    def __init__(self, x: int, y: int, k=None, b=None, robot=False, robot_movement=[0, 0], obstacle=False, obstacle_movement=[0, 0], repulsion_factor=0.0, end=False, end_movement=[0, 0], display=[]):
+    def __init__(self, x: int, y: int, k=None, b=None, robot=False, robot_movement=[0, 0], robot_distance=0.0, obstacle=False, obstacle_movement=[0, 0], repulsion_factor=0.0, end=False, end_movement=[0, 0], end_distance=0.0, display=[]):
         self.x = x
         self.y = y
         self.k = k
         self.b = b
         self.robot = robot
         self.robot_movement = robot_movement
+        self.robot_distance = robot_distance
         self.obstacle = obstacle
         self.obstacle_movement = obstacle_movement
         self.repulsion_factor = repulsion_factor
         self.end = end
         self.end_movement = end_movement
+        self.end_distance = end_distance
         self.display = display
 
     def __str__(self):
@@ -33,6 +35,8 @@ class Node:
             return self.robot
         elif key == 'robot_movement':
             return self.robot_movement
+        elif key == 'robot_distance':
+            return self.robot_distance
         elif key == 'obstacle':
             return self.obstacle
         elif key == 'obstacle_movement':
@@ -43,6 +47,8 @@ class Node:
             return self.end
         elif key == 'end_movement':
             return self.end_movement
+        elif key == 'end_distance':
+            return self.end_distance
 
     def __setitem__(self, key: str, value):
         if key == 'x':
@@ -57,6 +63,8 @@ class Node:
             self.robot = value
         elif key == 'robot_movement':
             self.robot_movement = value
+        elif key == 'robot_distance':
+            self.robot_distance = value
         elif key == 'obstacle':
             self.obstacle = value
         elif key == 'obstacle_movement':
@@ -67,3 +75,5 @@ class Node:
             self.end = value
         elif key == 'end_movement':
             self.end_movement = value
+        elif key == 'end_distance':
+            self.end_distance = value
