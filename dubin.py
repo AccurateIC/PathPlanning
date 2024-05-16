@@ -87,7 +87,7 @@ def angle_mod(x, zero_2_2pi=False, degree=False):
 show_animation = True
 
 
-def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=0.5, selected_types=None):
+def plan_dubins_path(s_x, s_y, s_yaw, g_x, g_y, g_yaw, curvature, step_size=1, selected_types=None):
     """
     Plan dubins path
 

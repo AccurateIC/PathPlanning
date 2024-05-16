@@ -41,8 +41,8 @@ for obstacle_x, obstacle_y, obstacle_dx, obstacle_dy in zip(obstacles_x + collis
 # for x, y in zip(collision_x, collision_y):
 #     array[y][x] = collision_value
 
-# np.save('bhavya.npy', array)
-array = np.load('bhavya.npy')
+# np.save('bhavya2.npy', array)
+array = np.load('bhavya2.npy')
 
 plt.figure(figsize=(20, 20))
 plt.imshow(array.T, cmap='rainbow')

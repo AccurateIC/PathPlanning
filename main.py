@@ -5,33 +5,18 @@ import environment
 
 if __name__ == '__main__':
     MOVEMENT = 'queen'
-    GRID_W, GRID_H = 20, 20
-    ROBOT_X, ROBOT_Y = 10, 19
+    GRID_W, GRID_H = 50, 50
+    ROBOT_X, ROBOT_Y = 25, 49
     ROBOT_DX, ROBOT_DY = 0, -1
-    END_X, END_Y = 10, 0
+    END_X, END_Y = 25, 0
     END_DX, END_DY = 0, -1
     DISPLAY = 'all'
     OBSTACLE_PENALTY = 500.0
     REPULSION_PENALTY = 10.0
     K_FACTOR = 0.5
-    ######### STATIC OBSTACLES
-    # OBSTACLES_X, OBSTACLES_Y = [10, 13], [5, 12]
-    # OBSTACLES_DX, OBSTACLES_DY = [0 for _ in OBSTACLES_X], [0 for _ in OBSTACLES_Y]
-    # REPULSION_X, REPULSION_Y = [2 for _ in OBSTACLES_X], [2 for _ in OBSTACLES_Y]
-    ######### DYNAMIC OBSTACLES
-    OBSTACLES_X, OBSTACLES_Y = [0, 0, 10], [100, 4, 10]
-    OBSTACLES_DX, OBSTACLES_DY = [1, 1, 0], [0, 1, 0]
-    REPULSION_X, REPULSION_Y = [2 for _ in OBSTACLES_X], [2 for _ in OBSTACLES_Y]
-    ######### RANDOM STATIC OBSTACLES
-    # OBSTACLES = 20
-    # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
-    # OBSTACLES_DX, OBSTACLES_DY = [0 for _ in range(OBSTACLES)], [0 for _ in range(OBSTACLES)]
-    # REPULSION_X, REPULSION_Y = [2 for _ in OBSTACLES_X], [2 for _ in OBSTACLES_Y]
-    ######### RANDOM DYNAMIC OBSTACLES
-    # OBSTACLES = 5
-    # OBSTACLES_X, OBSTACLES_Y = [rn.randint(0, GRID_W - 1) for _ in range(OBSTACLES)], [rn.randint(0, GRID_H - 1) for _ in range(OBSTACLES)]
-    # OBSTACLES_DX, OBSTACLES_DY = [rn.randint(-1, 1) for _ in range(OBSTACLES)], [rn.randint(-1, 1) for _ in range(OBSTACLES)]
-    # REPULSION_X, REPULSION_Y = [2 for _ in OBSTACLES_DX], [2 for _ in OBSTACLES_DY]
+    OBSTACLES_X, OBSTACLES_Y = [1, 20], [25, 8] # , 45] , 49]
+    OBSTACLES_DX, OBSTACLES_DY = [1, 0, -1], [0, 0, -1] # , -1] , -1]
+    MAJOR_RANGES, MINOR_RANGES = [[-1, 2], [-1, 1]], [[-1, 1], [-2, 2]] # , [0, 2]] , [-1, 1]]
 
     if [ROBOT_X, ROBOT_Y] in [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)]:
         index = [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)].index([ROBOT_X, ROBOT_Y])
@@ -47,13 +32,16 @@ if __name__ == '__main__':
         OBSTACLES_DY.pop(index)
 
     env = environment.Environment(GRID_H, GRID_W)
-    env.put_robot(ROBOT_X, ROBOT_Y, ROBOT_DX, ROBOT_DY)
-    env.put_end(END_X, END_Y, END_DX, END_DY)
-    env.put_obstacles(OBSTACLES_X, OBSTACLES_Y, OBSTACLES_DX, OBSTACLES_DY, REPULSION_X, REPULSION_Y)
-    env.plot_environment()
+    env.put_robot_in_memory(ROBOT_X, ROBOT_Y, ROBOT_DX, ROBOT_DY)
+    env.put_end_in_memory(END_X, END_Y, END_DX, END_DY)
+    env.get_global_path_in_memory()
+    env.put_obstacles_in_memory(OBSTACLES_X, OBSTACLES_Y, OBSTACLES_DX, OBSTACLES_DY, MAJOR_RANGES, MINOR_RANGES)
+    env.find_collision_points()
+    env.get_occupancy_grid()
+    # env.plot_environment()
 
     planner = bstar.PathPlanner(env, OBSTACLE_PENALTY, REPULSION_PENALTY)
-    ######################################################################################
+    # ######################################################################################
     start = time.time()
     planner.calculate_all_cost_and_heuristics_from_end_to_robot(MOVEMENT, K_FACTOR)
     end = time.time()
@@ -63,8 +51,9 @@ if __name__ == '__main__':
     path, orientation = planner.raw_path_finder_from_robot_to_end(MOVEMENT)
     end = time.time()
     print(end - start)
-    env.robot = {'movement': path, 'orientation': orientation}
-    env.plot_environment(paths={'Robot': path})
+    print(path)
+    # env.robot = {'movement': path, 'orientation': orientation}
+    # env.plot_environment(robot_path=path)
     ######################################################################################
     # start = time.time()
     # planner.calculate_cost_and_heuristics_from_robot_to_end(MOVEMENT, K_FACTOR)
@@ -96,9 +85,10 @@ if __name__ == '__main__':
     # print(end - start)
     # env.plot_environment(path)
     ######################################################################################
-    # path = planner.plan_dubins_path(path, 4, 4, 1.0)
+    dubins_path = planner.plan_dubins_path(path, 12, 12, 1.0)
+    env.plot_environment(robot_path={'BSTAR': path, 'DUBINS': dubins_path})
     # env.plot_environment(path)
-    for (x, y), (dx, dy) in zip(path[1:], orientation[1:]):
-        env.plot_environment(path)
-        env.move_obstacles(env.grid_obstacles)
-        env.move_robot(x, y, dx, dy)
+    # for (x, y), (dx, dy) in zip(path[1:], orientation[1:]):
+    #     env.plot_environment()
+    #     env.move_obstacles()
+    #     env.move_robot(x, y, dx, dy)
