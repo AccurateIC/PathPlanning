@@ -1,5 +1,6 @@
 import math
 import dubin
+import numpy as np
 
 class PathPlanner:
     def __init__(self, environment, obstacle_penalty: int, repulsion_penalty: int):
@@ -62,6 +63,12 @@ class PathPlanner:
 
     def sort_based_on_weighted_distance_to_end_and_heuristic(self, node, k_factor):
         return (k_factor * node['k']) + ((1 - k_factor) * node['end_distance'])
+
+    def sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(self, node, k_factor, o_factor):
+        return (k_factor * node['k']) + ((1 - k_factor) * node['robot_distance']) + (o_factor * node['total_obstacle_distance'])
+
+    def sort_based_on_weighted_distance_to_end_and_heuristic_and_obstacle(self, node, k_factor, o_factor):
+        return (k_factor * node['k']) + ((1 - k_factor) * node['end_distance']) + (o_factor * node['total_obstacle_distance'])
 
     def expand_all_neighbours_from_end_to_robot(self, x, y, movement, k_factor):
         for dx, dy in self.find_all_neighbour_offsets(movement, 1):
@@ -209,6 +216,75 @@ class PathPlanner:
                     y = self.open[0]['y']
         self.add_repulsion_penalty()
 
+    def expand_neighbours_from_end_to_robot(self, x, y, movement, k_factor, o_factor):
+        for dx, dy in self.find_all_neighbour_offsets(movement, 1):
+            index_x, index_y = x + dx, y + dy
+            if self.is_inside_grid(index_x, index_y):
+                if self.is_free_to_move(index_x, index_y):
+                    if self.is_never_visited(index_x, index_y):
+                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.open.append(self.environment.grid[index_y][index_x])
+                    else:
+                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                            self.update_node_in_open_list(index_x, index_y, new_k)
+            else:
+                continue
+        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(node, k_factor, o_factor))
+        top_node = self.open.pop(0)
+        return top_node
+
+    def calculate_cost_and_heuristics_from_end_to_robot(self, movement, k_factor, o_factor):
+        x, y = self.environment.end_x, self.environment.end_y
+        self.environment.grid[y][x]['k'] = 0
+        self.environment.grid[y][x]['b'] = None
+        self.open.append(self.environment.grid[y][x])
+        while True:
+            # self.environment.plot_environment_on_grid()
+            if any([graph_node['x'] == self.environment.robot_x and graph_node['y'] == self.environment.robot_y for graph_node in self.closed]):
+                break
+            else:
+                top_node = self.expand_neighbours_from_end_to_robot(x, y, movement, k_factor, o_factor)
+                self.closed.append(top_node)
+                if len(self.open) > 0:
+                    x = self.open[0]['x']
+                    y = self.open[0]['y']
+        self.add_repulsion_penalty()
+
+    def expand_neighbours_from_robot_to_end(self, x, y, movement, k_factor, o_factor):
+        for dx, dy in self.find_all_neighbour_offsets(movement, 1):
+            index_x, index_y = x + dx, y + dy
+            if self.is_inside_grid(index_x, index_y):
+                if self.is_free_to_move(index_x, index_y):
+                    if self.is_never_visited(index_x, index_y):
+                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.open.append(self.environment.grid[index_y][index_x])
+                    else:
+                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                            self.update_node_in_open_list(index_x, index_y, new_k)
+            else:
+                continue
+        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(node, k_factor, o_factor))
+        top_node = self.open.pop(0)
+        return top_node
+
+    def calculate_cost_and_heuristics_from_robot_to_end(self, movement, k_factor, o_factor):
+        x, y = self.environment.robot_x, self.environment.robot_y
+        self.environment.grid[y][x]['k'] = 0
+        self.environment.grid[y][x]['b'] = None
+        self.open.append(self.environment.grid[y][x])
+        while True:
+            if any([graph_node['x'] == self.environment.end_x and graph_node['y'] == self.environment.end_y for graph_node in self.closed]):
+                break
+            else:
+                top_node = self.expand_neighbours_from_robot_to_end(x, y, movement, k_factor, o_factor)
+                self.closed.append(top_node)
+                if len(self.open) > 0:
+                    x = self.open[0]['x']
+                    y = self.open[0]['y']
+        self.add_repulsion_penalty()
+
     def raw_path_finder_from_robot_to_end(self, movement):
         path = []
         orientations = []
@@ -238,6 +314,33 @@ class PathPlanner:
             orientations.append([dx, dy])
             x, y = neighbours[0]
         return path, orientations
+
+    def find_segments_in_path(self, path, orientation):
+        segments = [[path[0]]]
+        previous_yaw = orientation[0]
+        for index, yaw in enumerate(orientation[1:], 1):
+            if yaw == previous_yaw:
+                segments[-1].append(path[index])
+            else:
+                segments.append([path[index]])
+            previous_yaw = yaw
+        segments[-1].append(path[-1])
+        return segments
+
+    # def bazier_coefficient(self, n, k, a, b):
+    #     return (math.factorial(n) * math.pow(a, n - k) * math.pow(b, k)) / (math.factorial(k) * math.factorial(n - k))
+
+    # def baziers_curve(self, path: list, step_size: float):
+    #     new_path = []
+    #     degree = len(path) - 1
+    #     for t in np.arange(0.0, 1.0 + step_size, step_size, dtype='float32'):
+    #         t_matrix = np.array([self.bazier_coefficient(degree, power, t, 1-t) for power in range(degree, -1, -1)], dtype='float32')
+    #         x_matrix = np.array([x for x, y in path], dtype='float32')
+    #         y_matrix = np.array([y for x, y in path], dtype='float32')
+    #         x = t_matrix @ x_matrix
+    #         y = t_matrix @ y_matrix
+    #         new_path.append([x, y])
+    #     return new_path
 
     # def calculate_path_cost(self, path):
     #     return sum([self.environment.grid[y][x]['k'] for x, y in path])
@@ -270,22 +373,22 @@ class PathPlanner:
     #         else:
     #             return new_path
 
-    def plan_dubins_path(self, path, window_size, strides, curvature):
-        dubins_path = []
-        for start_index in range(0, len(path), strides):
-            start_x, start_y = path[start_index]
-            start_yaw = math.atan2(path[start_index + 1][1] - start_y, path[start_index + 1][0] - start_x)
-            end_index = start_index + window_size - 1
-            if end_index >= len(path) - 1:
-                end_index = len(path) - 1
-                end_x, end_y = path[end_index]
-                end_yaw = math.atan2(self.environment.end_dy, self.environment.end_dx)
-            else:
-                end_x, end_y = path[end_index]
-                end_yaw = math.atan2(path[end_index + 1][1] - end_y, path[end_index + 1][0] - end_x)
-            path_x, path_y, path_yaw, mode, lengths = dubin.plan_dubins_path(start_x, start_y, start_yaw, end_x, end_y, end_yaw, curvature)
-            dubins_path = dubins_path + [[x, y] for x, y in zip(path_x.tolist(), path_y.tolist())]
-        return dubins_path
+    # def plan_dubins_path(self, path, window_size, strides, curvature):
+    #     dubins_path = []
+    #     for start_index in range(0, len(path), strides):
+    #         start_x, start_y = path[start_index]
+    #         start_yaw = math.atan2(path[start_index + 1][1] - start_y, path[start_index + 1][0] - start_x)
+    #         end_index = start_index + window_size - 1
+    #         if end_index >= len(path) - 1:
+    #             end_index = len(path) - 1
+    #             end_x, end_y = path[end_index]
+    #             end_yaw = math.atan2(self.environment.end_dy, self.environment.end_dx)
+    #         else:
+    #             end_x, end_y = path[end_index]
+    #             end_yaw = math.atan2(path[end_index + 1][1] - end_y, path[end_index + 1][0] - end_x)
+    #         path_x, path_y, path_yaw, mode, lengths = dubin.plan_dubins_path(start_x, start_y, start_yaw, end_x, end_y, end_yaw, curvature)
+    #         dubins_path = dubins_path + [[x, y] for x, y in zip(path_x.tolist(), path_y.tolist())]
+    #     return dubins_path
 
     # def does_path_hit_obstacles(self, path):
     #     for x_path, y_path in path:

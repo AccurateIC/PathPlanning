@@ -1,5 +1,5 @@
 class Node:
-    def __init__(self, x: int, y: int, k=None, b=None, robot=False, robot_movement=[0, 0], robot_distance=0.0, obstacle=False, obstacle_movement=[0, 0], repulsion_factor=0.0, end=False, end_movement=[0, 0], end_distance=0.0, display=[]):
+    def __init__(self, x: int, y: int, k=None, b=None, robot=False, robot_movement=[0, 0], robot_distance=0.0, obstacle=False, obstacle_movement=[0, 0], total_obstacle_distance=0.0, repulsion_factor=0.0, end=False, end_distance=0.0, display=[]):
         self.x = x
         self.y = y
         self.k = k
@@ -9,9 +9,9 @@ class Node:
         self.robot_distance = robot_distance
         self.obstacle = obstacle
         self.obstacle_movement = obstacle_movement
+        self.total_obstacle_distance = total_obstacle_distance
         self.repulsion_factor = repulsion_factor
         self.end = end
-        self.end_movement = end_movement
         self.end_distance = end_distance
         self.display = display
 
@@ -41,12 +41,12 @@ class Node:
             return self.obstacle
         elif key == 'obstacle_movement':
             return self.obstacle_movement
+        elif key == 'total_obstacle_distance':
+            return self.total_obstacle_distance
         elif key == 'repulsion_factor':
             return self.repulsion_factor
         elif key == 'end':
             return self.end
-        elif key == 'end_movement':
-            return self.end_movement
         elif key == 'end_distance':
             return self.end_distance
 
@@ -69,11 +69,11 @@ class Node:
             self.obstacle = value
         elif key == 'obstacle_movement':
             self.obstacle_movement = value
+        elif key == 'total_obstacle_distance':
+            self.total_obstacle_distance = value
         elif key == 'repulsion_factor':
             self.repulsion_factor = value
         elif key == 'end':
             self.end = value
-        elif key == 'end_movement':
-            self.end_movement = value
         elif key == 'end_distance':
             self.end_distance = value
