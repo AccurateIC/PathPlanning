@@ -10,7 +10,7 @@ class Environment:
         self.reset_environment()
 
     def reset_environment(self):
-        self.current_obstacles_position = {}
+        self.obstacles = {}
         self.obstacles_path = {}
         self.collisions = {}
 
@@ -39,75 +39,73 @@ class Environment:
 ####################################################################################################################################################
 ####################################################################################################################################################
 
-    def put_robot_in_memory(self, robot_x, robot_y, robot_dx, robot_dy):
-        self.robot_x, self.robot_y = robot_x, robot_y
-        self.robot_dx, self.robot_dy = robot_dx, robot_dy
+    def place_start(self, start_x, start_y):
+        self.start_x, self.start_y = start_x, start_y
 
-    def put_global_path_in_memory(self):
-        if self.robot_x == self.end_x:
-            self.global_path = [[self.robot_x, y] for y in range(self.robot_y, self.end_y + 1 if self.robot_y < self.end_y else self.end_y - 1, 1 if self.robot_y < self.end_y else -1)]
-            self.global_orientation = [[0, -1 if self.robot_y > self.end_y else 1] for y in range(self.robot_y, self.end_y + 1 if self.robot_y < self.end_y else self.end_y - 1, 1 if self.robot_y < self.end_y else -1)]
-        elif self.robot_y == self.end_y:
-            self.global_path = [[x, self.robot_y] for x in range(self.robot_x, self.end_x + 1 if self.robot_x < self.end_x else self.end_x - 1, 1 if self.robot_x < self.end_x else -1)]
-            self.global_orientation = [[-1 if self.robot_x > self.end_x else 1, 0] for x in range(self.robot_x, self.end_x + 1 if self.robot_x < self.end_x else self.end_x - 1, 1 if self.robot_x < self.end_x else -1)]
-        else:
-            self.global_path = [[x, int(self.robot_y + (((self.end_y - self.robot_y) / (self.end_x - self.robot_x)) * (x - self.robot_x)))] for x in range(self.robot_x, self.end_x + 1, 1 if self.robot_x < self.end_x else -1)]
-            self.global_orientation = [[self.global_path[index + 1][0] - x, self.global_path[index + 1][1] - y] for index, (x, y) in enumerate(self.global_path[:-1])]
-
-    def put_end_in_memory(self, end_x, end_y):
+    def place_end(self, end_x, end_y):
         self.end_x, self.end_y = end_x, end_y
-        self.put_global_path_in_memory()
 
-    def put_obstacle_in_memory(self, obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range):
-        diagonal = int(math.sqrt(math.pow(self.grid_w, 2) + math.pow(self.grid_h, 2)))
-        obstacle_movement = [[obstacle_x + i * obstacle_dx, obstacle_y + i * obstacle_dy] for i in range(diagonal)]
-        obstacle_orientation = [[obstacle_dx, obstacle_dy] for _ in range(diagonal)]
-        major_ranges = [major_range for _ in range(diagonal)]
-        minor_ranges = [minor_range for _ in range(diagonal)]
-        obstacle_id = max(list(self.current_obstacles_position.keys())) + 1 if len(self.current_obstacles_position) > 0 else 0
-        self.current_obstacles_position[obstacle_id] = [obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range]
-        self.obstacles_path[obstacle_id] = {'movement': obstacle_movement, 'orientation': obstacle_orientation, 'major_range': major_ranges, 'minor_range': minor_ranges}
-
-    def put_obstacles_in_memory(self, obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, major_ranges, minor_ranges):
-        for obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range in zip(obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, major_ranges, minor_ranges):
-            self.put_obstacle_in_memory(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range)
-
-    def put_collision_points_in_memory(self, robot_path=None, robot_orientation=None):
-        if robot_path is None and robot_orientation is None:
-            self.robot_path = self.global_path
-            self.robot_orientation = self.global_orientation
+    def set_robot_path(self, path=None, orientation=None):
+        if path is None and orientation is None:
+            if self.start_x == self.end_x:
+                path = [[self.start_x, y] for y in range(self.start_y, self.end_y + 1 if self.start_y < self.end_y else self.end_y - 1, 1 if self.start_y < self.end_y else -1)]
+            elif self.start_y == self.end_y:
+                path = [[x, self.start_y] for x in range(self.start_x, self.end_x + 1 if self.start_x < self.end_x else self.end_x - 1, 1 if self.start_x < self.end_x else -1)]
+            else:
+                path = [[x, int(self.start_y + (((self.end_y - self.start_y) / (self.end_x - self.start_x)) * (x - self.start_x)))] for x in range(self.start_x, self.end_x + 1, 1 if self.start_x < self.end_x else -1)]
+            orientation = [[path[index + 1][0] - x, path[index + 1][1] - y] for index, (x, y) in enumerate(path[:-1])]
+            self.robot_path = {'movement': path, 'orientation': orientation}
         else:
-            self.robot_path = robot_path
-            self.robot_orientation = robot_orientation
-        for timestep, (robot_x, robot_y) in enumerate(self.robot_path):
+            self.robot_path = {'movement': path, 'orientation': orientation}
+
+    def place_obstacle(self, obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_axis, minor_axis):
+        obstacle_id = max(list(self.obstacles.keys())) + 1 if len(self.obstacles) > 0 else 0
+        self.obstacles[obstacle_id] = [obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_axis, minor_axis]
+
+    def place_obstacles(self, obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, major_ranges, minor_ranges):
+        for obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range in zip(obstacles_x, obstacles_y, obstacles_dx, obstacles_dy, major_ranges, minor_ranges):
+            self.place_obstacle(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range)
+
+    def predict_obstacle_path(self, obstacle_id: int, path_length: int):
+        obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_axis, minor_axis = self.obstacles[obstacle_id]
+        obstacle_movement = [[obstacle_x + i * obstacle_dx, obstacle_y + i * obstacle_dy] for i in range(path_length)]
+        obstacle_orientation = [[obstacle_dx, obstacle_dy] for _ in range(path_length)]
+        major_axes = [major_axis for _ in range(path_length)]
+        minor_axes = [minor_axis for _ in range(path_length)]
+        self.obstacles_path[obstacle_id] = {'movement': obstacle_movement, 'orientation': obstacle_orientation, 'major_range': major_axes, 'minor_range': minor_axes}
+
+    def predict_all_obstacles_path(self, path_length):
+        for obstacle_id in self.obstacles:
+            self.predict_obstacle_path(obstacle_id, path_length)
+
+    def get_collision_points(self, path=None, orientation=None):
+        if path is None and orientation is None:
+            path = self.robot_path['movement']
+            orientation = self.robot_path['orientation']
+        for timestep, [x, y] in enumerate(path):
+            self.collisions[timestep] = []
             for obstacle_id in self.obstacles_path:
-                if self.obstacles_path[obstacle_id]['movement'][timestep] == [robot_x, robot_y]:
-                    if timestep in self.collisions:
-                        self.collisions[timestep] = self.collisions[timestep] + [obstacle_id]
-                    else:
-                        self.collisions[timestep] = [obstacle_id]
-            if timestep in self.collisions:
-                self.collisions[timestep] = sorted(self.collisions[timestep])
+                if self.obstacles_path[obstacle_id]['movement'][timestep] == path[timestep]:
+                    self.collisions[timestep].append(obstacle_id)
 
     def plot_environment_in_memory(self, pause_time=1):
         fig, ax = plt.subplots(1, 1, figsize=(12, 12))
-        ax.add_patch(plt.Rectangle((self.robot_x, self.robot_y), 1, 1, color='green'))
-        ax.annotate('', (self.robot_x + 0.5, self.robot_y + 0.5), (self.robot_x + 0.5 + self.robot_dx, self.robot_y + 0.5 + self.robot_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
+        ax.add_patch(plt.Rectangle((self.start_x, self.start_y), 1, 1, color='green'))
         ax.add_patch(plt.Rectangle((self.end_x, self.end_y), 1, 1, color='orange'))
         for timestep in self.collisions:
             for obstacle_id in self.collisions[timestep]:
                 ax.add_patch(plt.Rectangle((self.obstacles_path[obstacle_id]['movement'][timestep][0], self.obstacles_path[obstacle_id]['movement'][timestep][1]), 1, 1, color='red'))
                 ax.annotate('', (self.obstacles_path[obstacle_id]['movement'][timestep][0] + 0.5, self.obstacles_path[obstacle_id]['movement'][timestep][1] + 0.5), (self.obstacles_path[obstacle_id]['movement'][timestep][0] + 0.5 + self.obstacles_path[obstacle_id]['orientation'][timestep][0], self.obstacles_path[obstacle_id]['movement'][timestep][1] + 0.5 + self.obstacles_path[obstacle_id]['orientation'][timestep][1]), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
-        for obstacle_id in self.current_obstacles_position:
-            obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range = self.current_obstacles_position[obstacle_id]
+        for obstacle_id in self.obstacles:
+            obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range = self.obstacles[obstacle_id]
             ax.add_patch(plt.Rectangle((obstacle_x, obstacle_y), 1, 1, color='black'))
             ax.annotate('', (obstacle_x + 0.5, obstacle_y + 0.5), (obstacle_x + 0.5 + obstacle_dx, obstacle_y + 0.5 + obstacle_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
         for obstacle_id in self.obstacles_path:
             ax.plot([x + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], [y + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], label=f'OBSTACLE {obstacle_id}')
             ax.scatter([x + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], [y + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], label=f'OBSTACLE {obstacle_id}')
         if len(self.robot_path) != 0:
-            ax.plot([x + 0.5 for x, y in self.robot_path], [y + 0.5 for x, y in self.robot_path], label=f'ROBOT PATH')
-            ax.scatter([x + 0.5 for x, y in self.robot_path], [y + 0.5 for x, y in self.robot_path], label=f'ROBOT PATH')
+            ax.plot([x + 0.5 for x, y in self.robot_path['movement']], [y + 0.5 for x, y in self.robot_path['movement']], label=f'ROBOT PATH')
+            ax.scatter([x + 0.5 for x, y in self.robot_path['movement']], [y + 0.5 for x, y in self.robot_path['movement']], label=f'ROBOT PATH')
         ax.legend(loc='best')
         ax.set_xlim(0, self.grid_w)
         ax.set_ylim(0, self.grid_h)
@@ -246,7 +244,7 @@ class Environment:
                 self.grid[future_y][future_x]['obstacle_movement'] = [future_dx, future_dy]
             repulsions_x, repulsions_y, repulsions_factor = self.get_oval_repulsion_around_obstacle(future_x, future_y, future_dx, future_dy, major_range, minor_range)
             self.put_repulsions(repulsions_x, repulsions_y, repulsions_factor)
-            self.current_obstacles_position[obstacle_id] = [future_x, future_y, future_dx, future_dy, major_range, minor_range]
+            self.obstacles_position[obstacle_id] = [future_x, future_y, future_dx, future_dy, major_range, minor_range]
 
     def move_obstacles_on_grid(self, timestep):
         for obstacle_id in self.obstacles_path:

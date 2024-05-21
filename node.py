@@ -1,9 +1,10 @@
 class Node:
-    def __init__(self, x: int, y: int, k=None, b=None, robot=False, robot_movement=[0, 0], robot_distance=0.0, obstacle=False, obstacle_movement=[0, 0], total_obstacle_distance=0.0, repulsion_factor=0.0, end=False, end_distance=0.0, display=[]):
+    def __init__(self, x: int, y: int, k=None, b=None, start=False, robot=False, robot_movement=[0, 0], robot_distance=0.0, obstacle=False, obstacle_movement=[0, 0], total_obstacle_distance=0.0, repulsion_factor=0.0, end=False, end_distance=0.0, display=[]):
         self.x = x
         self.y = y
         self.k = k
         self.b = b
+        self.start = start
         self.robot = robot
         self.robot_movement = robot_movement
         self.robot_distance = robot_distance
@@ -31,6 +32,8 @@ class Node:
             return self.k
         elif key == 'b':
             return self.b
+        elif key == 'start':
+            return self.start
         elif key == 'robot':
             return self.robot
         elif key == 'robot_movement':
@@ -59,6 +62,8 @@ class Node:
             self.k = value
         elif key == 'b':
             self.b = value
+        elif key == 'start':
+            self.start = value
         elif key == 'robot':
             self.robot = value
         elif key == 'robot_movement':
