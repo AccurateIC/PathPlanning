@@ -3,12 +3,14 @@ import math
 import matplotlib.pyplot as plt
 
 class Environment:
-    def __init__(self, grid_h, grid_w, display=[],repulsion_offset = 5):
+    def __init__(self, grid_h, grid_w, display=[],repulsion_offset = 3):
         self.grid_h = grid_h
         self.grid_w = grid_w
         self.display = display
         self.repulsion_offset = repulsion_offset
+        self.all_repulsions = {"x_repulsions":[], "y_repulsions":[], "repulsion_factor":[]}
         self.reset_environment()
+        self.collisions = {}
 
     def reset_environment(self):
         self.current_obstacles_position = {}
@@ -54,7 +56,6 @@ class Environment:
         return repulsions_x, repulsions_y, repulsions_factor
 
     def print_obstacle_data(self):
-        print("Current Obstacles Position:")
         for obstacle_id, position in self.current_obstacles_position.items():
             print(f"Obstacle ID: {obstacle_id}, Position: {position}")
 
@@ -113,7 +114,7 @@ class Environment:
                 self.collisions[timestep] = sorted(self.collisions[timestep])
 
     def plot_environment_in_memory(self, pause_time=1):
-        print("self.collisions : ",self.collisions)
+        
         
         fig, ax = plt.subplots(1, 1, figsize=(12, 12))
         ax.add_patch(plt.Rectangle((self.robot_x, self.robot_y), 1, 1, color='green'))
@@ -125,11 +126,14 @@ class Environment:
                 ax.annotate('', (self.obstacles_path[obstacle_id]['movement'][timestep][0] + 0.5, self.obstacles_path[obstacle_id]['movement'][timestep][1] + 0.5), (self.obstacles_path[obstacle_id]['movement'][timestep][0] + 0.5 + self.obstacles_path[obstacle_id]['orientation'][timestep][0], self.obstacles_path[obstacle_id]['movement'][timestep][1] + 0.5 + self.obstacles_path[obstacle_id]['orientation'][timestep][1]), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
         for obstacle_id in self.current_obstacles_position:
             obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range = self.current_obstacles_position[obstacle_id]
-            ax.add_patch(plt.Rectangle((obstacle_x, obstacle_y), 1, 1, color='black'))
-            ax.annotate('', (obstacle_x + 0.5, obstacle_y + 0.5), (obstacle_x + 0.5 + obstacle_dx, obstacle_y + 0.5 + obstacle_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
+            if obstacle_x and obstacle_y:
+                ax.add_patch(plt.Rectangle((obstacle_x, obstacle_y), 1, 1, color='black'))
+                ax.annotate('', (obstacle_x + 0.5, obstacle_y + 0.5), (obstacle_x + 0.5 + obstacle_dx, obstacle_y + 0.5 + obstacle_dy), arrowprops={'color': 'purple', 'arrowstyle': '<-'})
         for obstacle_id in self.obstacles_path:
-            ax.plot([x + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], [y + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], label=f'OBSTACLE {obstacle_id}')
-            ax.scatter([x + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], [y + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], label=f'OBSTACLE {obstacle_id}')
+            if self.obstacles_path[obstacle_id]['movement'] :
+                print(f"obstracle MOVEMENT    = {self.obstacles_path[obstacle_id]['movement']}")
+                ax.plot([x + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], [y + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], label=f'OBSTACLE {obstacle_id}')
+                ax.scatter([x + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], [y + 0.5 for x, y in self.obstacles_path[obstacle_id]['movement']], label=f'OBSTACLE {obstacle_id}')
         if len(self.robot_path) != 0:
             ax.plot([x + 0.5 for x, y in self.robot_path], [y + 0.5 for x, y in self.robot_path], label=f'ROBOT PATH')
             ax.scatter([x + 0.5 for x, y in self.robot_path], [y + 0.5 for x, y in self.robot_path], label=f'ROBOT PATH')
@@ -170,14 +174,19 @@ class Environment:
             self.grid[self.end_y][self.end_x]['end'] = True
         self.put_distance_of_each_nodes_to_end_on_grid()
 
-    def put_repulsion(self, repulsion_x, repulsion_y, repulsion_factor):
+    def put_repulsion(self, repulsion_x, repulsion_y, repulsion_factor,is_offset=False):
         if self.is_inside_grid(repulsion_x, repulsion_y):
           
             self.grid[repulsion_y][repulsion_x]['repulsion_factor'] = self.grid[repulsion_y][repulsion_x]['repulsion_factor'] + repulsion_factor
+            if is_offset:
+                print(f"x = {repulsion_x}, y = {repulsion_y}, repulsion_factor{repulsion_factor}")
 
-    def put_repulsions(self, repulsions_x, repulsions_y, repulsions_factor):
+                
+    def put_repulsions(self, repulsions_x, repulsions_y, repulsions_factor,is_offset =False):
+        
         for repulsion_x, repulsion_y, repulsion_factor in zip(repulsions_x, repulsions_y, repulsions_factor):
-            self.put_repulsion(repulsion_x, repulsion_y, repulsion_factor)
+            print(len(repulsions_x) , len(repulsions_y))
+            self.put_repulsion(repulsion_x, repulsion_y, repulsion_factor,is_offset)
 
     def put_obstacle(self, obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range):
         if self.is_inside_grid(obstacle_x, obstacle_y):
@@ -205,63 +214,38 @@ class Environment:
                 major_range = self.obstacles_path[obstacle_id]['major_range'][timestep]
                 minor_range = self.obstacles_path[obstacle_id]['minor_range'][timestep]
                 self.put_obstacle(collision_x, collision_y, collision_dx, collision_dy, major_range, minor_range)
-            
+    
                 repulsions_x, repulsions_y, repulsions_factor = self.get_oval_repulsion_around_obstacle(collision_x, collision_y, collision_dx, collision_dy, major_range, minor_range)
-                self.plot_repulsion(repulsions_x, repulsions_y,"Raw data")
-                
-                offset_repulsions_x , offset_repulsions_y = self.get_offset_repulsion(repulsions_x,repulsions_y)    
-                self.plot_repulsion(offset_repulsions_x, offset_repulsions_y,"Offset data")
+                self.plot_repulsion(repulsions_x, repulsions_y, "Raw data")
+    
+                self.all_repulsions["x_repulsions"].extend(repulsions_x)
+                self.all_repulsions["y_repulsions"].extend(repulsions_y)
+                self.all_repulsions["repulsion_factor"].extend(repulsions_factor)
+    
+                offset_repulsions_x, offset_repulsions_y = self.get_offset_repulsion(repulsions_x, repulsions_y)
+            
+                self.all_repulsions["x_repulsions"].extend(offset_repulsions_x)
+                self.all_repulsions["y_repulsions"].extend(offset_repulsions_y)
+                self.all_repulsions["repulsion_factor"].extend([1.0] * len(offset_repulsions_x))
+    
+                self.plot_repulsion(offset_repulsions_x, offset_repulsions_y, "Offset data")
                 self.put_repulsions(repulsions_x, repulsions_y, repulsions_factor)
-                self.put_repulsions(offset_repulsions_x, offset_repulsions_y, repulsions_factor)
+                self.put_repulsions(offset_repulsions_x, offset_repulsions_y, [1.0] * len(offset_repulsions_x), is_offset=True)
                 self.put_distance_of_each_nodes_to_collision_on_grid(collision_x, collision_y)
-
+    
     def get_offset_repulsion(self, repulsion_x: list, repulsion_y: list) -> (list, list):
-        xmin , ymin = min(repulsion_x), min(repulsion_y) 
-        xmax , ymax = max(repulsion_x), max(repulsion_y)
         offset_x = []
         offset_y = []
-        for x_cord in repulsion_x:
-            for y_cord in repulsion_y:
-                if x_cord == xmin: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord - offset)
-                        offset_y.append(y_cord)
-                        
-                if x_cord == xmax: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord + offset)
-                        offset_y.append(y_cord)
-                
-                if y_cord == ymin: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord)
-                        offset_y.append(y_cord - offset)
-                        
-                if y_cord == ymax: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord )
-                        offset_y.append(y_cord + offset)
-                
-                if x_cord == xmin and  y_cord == ymin: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord - offset)
-                        offset_y.append(y_cord - offset)
-                
-                if x_cord == xmin and  y_cord == ymax: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord - offset)
-                        offset_y.append(y_cord + offset)
-                
-                if x_cord == xmax and  y_cord == ymin: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord + offset)
-                        offset_y.append(y_cord - offset)
-                        
-                if x_cord == xmax and  y_cord == ymax: 
-                    for offset in range(1,self.repulsion_offset):
-                        offset_x.append(x_cord + offset)
-                        offset_y.append(y_cord + offset)
-                
+        for x, y in zip(repulsion_x, repulsion_y):
+            for dx in range(-self.repulsion_offset, self.repulsion_offset + 1):
+                for dy in range(-self.repulsion_offset, self.repulsion_offset + 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    new_x = x + dx
+                    new_y = y + dy
+                    if self.is_inside_grid(new_x, new_y):
+                        offset_x.append(new_x)
+                        offset_y.append(new_y)
         return offset_x, offset_y
                         
                 
@@ -281,37 +265,25 @@ class Environment:
                     major_range = self.obstacles_path[obstacle_id]['major_range'][timestep]
                     minor_range = self.obstacles_path[obstacle_id]['minor_range'][timestep]
                     self.put_obstacle(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range)
+
                     repulsions_x, repulsions_y, repulsions_factor = self.get_oval_repulsion_around_obstacle(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range)
-                    offset_repulsions_x , offset_repulsions_y = self.get_offset_repulsion(repulsions_x,repulsions_y)
+                    offset_repulsions_x, offset_repulsions_y = self.get_offset_repulsion(repulsions_x, repulsions_y)
+
+                    self.all_repulsions["x_repulsions"].extend(repulsions_x)
+                    self.all_repulsions["y_repulsions"].extend(repulsions_y)
+                    self.all_repulsions["repulsion_factor"].extend(repulsions_factor)
+                    self.all_repulsions["x_repulsions"].extend(offset_repulsions_x)
+                    self.all_repulsions["y_repulsions"].extend(offset_repulsions_y)
+                    self.all_repulsions["repulsion_factor"].extend([1.0] * len(offset_repulsions_x))
+
                     self.put_repulsions(repulsions_x, repulsions_y, repulsions_factor)
-                    self.put_repulsions(offset_repulsions_x, offset_repulsions_y, repulsions_factor)
-                    self.plot_repulsion(repulsions_x,repulsions_y,"put other obcstracle on the grid RAWWW")
-                    self.plot_repulsion(offset_repulsions_x,offset_repulsions_y,"put other obcstracle on the grid with Offset")
-                    
+                    self.put_repulsions(offset_repulsions_x, offset_repulsions_y, [1.0] * len(offset_repulsions_x), is_offset=True)
+
+                    self.plot_repulsion(repulsions_x, repulsions_y, "put other obstacle on the grid RAWWW")
+                    self.plot_repulsion(offset_repulsions_x, offset_repulsions_y, "put other obstacle on the grid with Offset")
+
                     self.put_distance_of_each_nodes_to_other_obstacles_on_grid(obstacle_x, obstacle_y)
-    
-    def get_all_repulsions(self):
-        all_repulsions_x, all_repulsions_y, all_repulsions_factor = [], [], []
-        
-        for obstacle_id, position in self.current_obstacles_position.items():
-            obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range = position
-            repulsions_x, repulsions_y, repulsions_factor = self.get_oval_repulsion_around_obstacle(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy, major_range, minor_range)
-            all_repulsions_x.extend(repulsions_x)
-            all_repulsions_y.extend(repulsions_y)
-            all_repulsions_factor.extend(repulsions_factor)
-        
-        for timestep in self.collisions:
-            for obstacle_id in self.collisions[timestep]:
-                collision_x, collision_y = self.obstacles_path[obstacle_id]['movement'][timestep]
-                collision_dx, collision_dy = self.obstacles_path[obstacle_id]['orientation'][timestep]
-                major_range = self.obstacles_path[obstacle_id]['major_range'][timestep]
-                minor_range = self.obstacles_path[obstacle_id]['minor_range'][timestep]
-                repulsions_x, repulsions_y, repulsions_factor = self.get_oval_repulsion_around_obstacle(collision_x, collision_y, collision_dx, collision_dy, major_range, minor_range)
-                all_repulsions_x.extend(repulsions_x)
-                all_repulsions_y.extend(repulsions_y)
-                all_repulsions_factor.extend(repulsions_factor)
-        
-        return all_repulsions_x, all_repulsions_y, all_repulsions_factor
+
     
     def move_robot_on_grid(self, timestep):
         current_x, current_y = self.robot_path[timestep - 1]
@@ -348,7 +320,14 @@ class Environment:
             repulsions_x, repulsions_y, repulsions_factor = self.get_oval_repulsion_around_obstacle(future_x, future_y, future_dx, future_dy, major_range, minor_range)
             self.put_repulsions(repulsions_x, repulsions_y, repulsions_factor)
             offset_repulsions_x , offset_repulsions_y = self.get_offset_repulsion(repulsions_x,repulsions_y)
-            self.put_repulsions(offset_repulsions_x, offset_repulsions_y, repulsions_factor)
+            self.all_repulsions["x_repulsions"].extend(repulsions_x)
+            self.all_repulsions["y_repulsions"].extend(repulsions_y)
+            self.all_repulsions["repulsion_factor"].extend(repulsions_factor)
+            self.all_repulsions["x_repulsions"].extend(offset_repulsions_x)
+            self.all_repulsions["y_repulsions"].extend(offset_repulsions_y)
+            self.all_repulsions["repulsion_factor"].extend(repulsions_factor)
+            
+            self.put_repulsions(offset_repulsions_x, offset_repulsions_y, repulsions_factor,is_offset =True)
             self.current_obstacles_position[obstacle_id] = [future_x, future_y, future_dx, future_dy, major_range, minor_range]
 
     def move_obstacles_on_grid(self, timestep):
