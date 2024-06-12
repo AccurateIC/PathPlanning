@@ -1,4 +1,4 @@
-import node
+from path_planning_utils import node
 import math
 import matplotlib.pyplot as plt
 

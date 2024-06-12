@@ -1,5 +1,5 @@
 import math
-import dubin
+from path_planning_utils import dubin
 import numpy as np
 
 class PathPlanner:

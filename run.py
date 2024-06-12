@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
-import environment
-from post_process import PathPlanner
-import bstar
+from path_planning_utils import environment,bstar
+from path_planning_utils.post_process import PathPlanner
+
 
 @dataclass
 class PathParameters:
