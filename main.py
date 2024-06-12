@@ -16,36 +16,44 @@ def read_json(file_path):
     else:
         return {"paths": [], "obstacles": []}
 
+
 def write_json(data, file_path):
     with open(file_path, 'w') as file:
         json.dump(data, file, indent=4)
+
+
+def remove_position_from_obstacles(position):
+    obstacles_positions = [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)]
+    if position in obstacles_positions:
+        index = obstacles_positions.index(position)
+        OBSTACLES_X.pop(index)
+        OBSTACLES_Y.pop(index)
+        OBSTACLES_DX.pop(index)
+        OBSTACLES_DY.pop(index)
+
 
 if __name__ == '__main__':
     MOVEMENT = 'queen'
     GRID_W, GRID_H = 50, 50
     ROBOT_X, ROBOT_Y = 25, 49
-    ROBOT_DX, ROBOT_DY = 0, -1
+    ROBOT_DX, ROBOT_DY = 0, 0
     END_X, END_Y = 25, 0
     DISPLAY = 'all'
     OBSTACLE_PENALTY = 500.0
     REPULSION_PENALTY = 10.0
     K_FACTOR = 0.5
-    OBSTACLES_X, OBSTACLES_Y = [1, 20], [25, 8]
-    OBSTACLES_DX, OBSTACLES_DY = [1, 0], [0, 0]
+    OBSTACLES_X, OBSTACLES_Y = [1, 10, 4 ], [25, 8 , 4]
+    OBSTACLES_DX, OBSTACLES_DY = [1, 0 , 0], [0, 0, 0]
     MAJOR_RANGES, MINOR_RANGES = [[-1, 3], [-1, 1]], [[-2, 2], [-2, 2]]
 
-    if [ROBOT_X, ROBOT_Y] in [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)]:
-        index = [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)].index([ROBOT_X, ROBOT_Y])
-        OBSTACLES_X.pop(index)
-        OBSTACLES_Y.pop(index)
-        OBSTACLES_DX.pop(index)
-        OBSTACLES_DY.pop(index)
-    if [END_X, END_Y] in [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)]:
-        index = [[x, y] for x, y in zip(OBSTACLES_X, OBSTACLES_Y)].index([END_X, END_Y])
-        OBSTACLES_X.pop(index)
-        OBSTACLES_Y.pop(index)
-        OBSTACLES_DX.pop(index)
-        OBSTACLES_DY.pop(index)
+    # Check if the robot's position is in the list of obstacles
+    robot_position = [ROBOT_X, ROBOT_Y]
+    remove_position_from_obstacles(robot_position)
+
+    # Check if the end position is in the list of obstacles
+    end_position = [END_X, END_Y]
+    remove_position_from_obstacles(end_position)
+
 
     env = environment.Environment(GRID_H, GRID_W)
     env.put_robot_in_memory(ROBOT_X, ROBOT_Y, ROBOT_DX, ROBOT_DY)
@@ -54,8 +62,8 @@ if __name__ == '__main__':
     env.put_collision_points_in_memory()
     env.plot_environment_in_memory(pause_time=2)
     env.get_occupancy_grid()
-    env.plot_environment_on_grid(pause_time=5)
-
+    
+    
     planner = bstar.PathPlanner(env, OBSTACLE_PENALTY, REPULSION_PENALTY)
     start = time.time()
     planner.calculate_all_cost_and_heuristics_from_end_to_robot(MOVEMENT, K_FACTOR)
@@ -72,11 +80,9 @@ if __name__ == '__main__':
     print('BSTAR ORIENTATION:', orientation, end='\n===================================================\n')
 
     # Post-processing using PathPlanner
-    repulsions_x,repulsions_y, _ = env.get_all_repulsions()
-  
-    
- 
-    
+    all_repulsions = env.all_repulsions
+    repulsions_x,repulsions_y = all_repulsions["x_repulsions"], all_repulsions["y_repulsions"]
+
     path_points = np.asarray(path)
 
     post_planner = PathPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
@@ -101,7 +107,7 @@ if __name__ == '__main__':
     })
     write_json(data, json_file_path)
    
-    # for timestep, _ in enumerate(path[1:], 1):
-    #     env.plot_environment_in_memory()
-    #     env.move_obstacles_on_grid(timestep)
-    #     env.move_robot_on_grid(timestep)
+    for timestep, _ in enumerate(path[1:], 1):
+        env.plot_environment_in_memory()
+        env.move_obstacles_on_grid(timestep)
+        env.move_robot_on_grid(timestep)

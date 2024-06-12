@@ -9,6 +9,15 @@ class PathPlanner:
         self.repulsion_penalty = repulsion_penalty
         self.open = []
         self.closed = []
+        
+        
+        # print("________________________________________________________________")
+        # print("Obstacles : ")
+        # for obstacle in environment.current_obstacles_position.values():
+        #     print(obstacle)
+        # print("Repulsions:")
+        # print("Repulsion X:", environment.repulsion_x, "length", len(environment.repulsion_x))
+        # print("Repulsion Y:", environment.repulsion_y,"length", len(environment.repulsion_x))
 
     def euclidian_distance(self, x1, y1, x2, y2):
         return math.sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2))

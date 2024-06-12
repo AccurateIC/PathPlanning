@@ -4,32 +4,64 @@ from scipy.interpolate import splprep, splev
 from rdp import rdp
 
 class PathPlanner:
-    def __init__(self, path_points, repulsions_x, repulsions_y, epsilon=1.0, spline_smoothness=5, spline_degree=3):
-        self.path_points = path_points
+    def __init__(self, path_points, repulsions_x, repulsions_y, epsilon=1.0, spline_smoothness=5, spline_degree=2, max_distance=5):
+        self.path_points = np.array(path_points)
         self.repulsions_x = np.array(repulsions_x)
         self.repulsions_y = np.array(repulsions_y)
         self.epsilon = epsilon
         self.spline_smoothness = spline_smoothness
         self.spline_degree = spline_degree
+        self.max_distance = max_distance
         self.reduced_path_points = self.simplify_path()
         self.closest_spline_point = None
         self.closest_repulsion_point = None
 
-    def simplify_path(self):
-        return rdp(self.path_points, epsilon=self.epsilon)
+    def find_closest_point(self, midpoint):
+        distances = np.sqrt((self.path_points[:, 0] - midpoint[0])**2 + (self.path_points[:, 1] - midpoint[1])**2)
+        closest_index = np.argmin(distances)
+        return self.path_points[closest_index]
 
-    def get_b_spline(self, degree,num_points = 1000):
+    def simplify_path(self):
+        if len(self.path_points) < 6:
+            return self.path_points
+        
+        start_points = self.path_points[:3]
+        end_points = self.path_points[-3:]
+        middle_points = self.path_points[3:-3]
+
+        reduced_middle = rdp(middle_points, epsilon=self.epsilon) if len(middle_points) > 2 else middle_points
+        combined_path = np.vstack((start_points, reduced_middle, end_points))
+
+        refined_path = [combined_path[0]]
+        for i in range(1, len(combined_path)):
+            start = combined_path[i-1]
+            end = combined_path[i]
+
+            while np.linalg.norm(start - end) > self.max_distance:
+                midpoint = (start + end) / 2
+                closest_point = self.find_closest_point(midpoint)
+                refined_path.append(closest_point)
+                start = closest_point
+            
+            refined_path.append(end)
+
+        return np.array(refined_path)
+
+    def get_b_spline(self, degree, num_points=500):
         x = self.reduced_path_points[:, 0]
         y = self.reduced_path_points[:, 1]
-        tck =  splprep([x, y], s=self.spline_smoothness, k=degree)
-        u_fine = np.linspace(0, 1, num_points)
-        return splev(u_fine, tck[0])
-    
+
+        if len(x) >= 4:
+            tck, _ = splprep([x, y], s=self.spline_smoothness, k=degree)
+            u_fine = np.linspace(0, 1, num_points)
+            return splev(u_fine, tck)
+        return (None, None)
 
     def closest_distance_to_repulsion(self, x_fine, y_fine):
         min_distance = float('inf')
         closest_spline_point = None
         closest_repulsion_point = None
+
         for (x, y) in zip(x_fine, y_fine):
             distances = np.sqrt((self.repulsions_x - x)**2 + (self.repulsions_y - y)**2)
             min_index = np.argmin(distances)
@@ -37,98 +69,75 @@ class PathPlanner:
                 min_distance = distances[min_index]
                 closest_spline_point = (x, y)
                 closest_repulsion_point = (self.repulsions_x[min_index], self.repulsions_y[min_index])
+
         self.closest_spline_point = closest_spline_point
         self.closest_repulsion_point = closest_repulsion_point
         return min_distance, closest_spline_point
 
     def infer_spline(self):
         x_fine, y_fine = self.get_b_spline(self.spline_degree)
-        min_distance, corresponding_spline = self.closest_distance_to_repulsion(x_fine, y_fine)
-        
-        print("Corresponding spline point: ", corresponding_spline)
 
-        if min_distance < 1:
-            # Convert reduced_path_points to a numpy array for easier distance calculations
-            reduced_path_points_array = np.array(self.reduced_path_points)
+        if x_fine is not None and y_fine is not None:
+            min_distance, _ = self.closest_distance_to_repulsion(x_fine, y_fine)
+            return x_fine, y_fine, min_distance
 
-            # Calculate distances from corresponding_spline to all reduced_path_points
-            reduced_path_distances = np.sqrt((reduced_path_points_array[:, 0] - corresponding_spline[0])**2 + 
-                                             (reduced_path_points_array[:, 1] - corresponding_spline[1])**2)
+        return None, None, None
 
-            updated_points = []
-            for i in range(len(reduced_path_points_array)):
-                if reduced_path_distances[i] < 10:
-                   self.adjust_reduced_path_points(reduced_path_points_array[i],corresponding_spline)
-                else:
-                    updated_points.append(reduced_path_distances[i])
-            # Find indices of the nearest and second nearest points
-            print("reduced_path_distances : ",reduced_path_distances)
-            nearest_index = np.argmin(reduced_path_distances)
-            nearest_reduced_path_point = self.reduced_path_points[nearest_index]
-
-            # Temporarily set the nearest distance to infinity to find the second nearest
-            reduced_path_distances[nearest_index] = np.inf
-            second_nearest_index = np.argmin(reduced_path_distances)
-            second_nearest_reduced_path_point = self.reduced_path_points[second_nearest_index]
-
-            print("Nearest point in reduced_path_points: ", nearest_reduced_path_point)
-            print("Second nearest point in reduced_path_points: ", second_nearest_reduced_path_point)
-
-        return x_fine, y_fine, min_distance
-
-    def adjust_reduced_path_points(self,point,corresponding_spline):
-        print("_________________________________________________________________________________________")
-        deta_x,delta_y = corresponding_spline[0]- point[0] , corresponding_spline[0]-point[0]
-        print("Adjusting",deta_x,delta_y)
-        deta_x,delta_y = corresponding_spline - point
-        print("Adjusting",deta_x,delta_y)
-        print("_________________________________________________________________________________________")
-        
     def plot(self):
         x_fine, y_fine, min_distance = self.infer_spline()
        
-        print("Minimum Euclidean distance to any repulsion point: ", min_distance)
+        
+        if x_fine is not None and y_fine is not None:
+            fig, ax = plt.subplots(figsize=(10, 6))
 
-        fig, ax = plt.subplots()
+            # Plot original path points
+            ax.plot(self.path_points[:, 0], self.path_points[:, 1], 'bo-', label='Original A* Path', linewidth=1.5, markersize=5)
 
-        # Plot original path points
-        ax.plot(self.path_points[:, 0], self.path_points[:, 1], 'bo-', label='Original A* Path')
-        # Plot reduced path points used for B-Spline fitting
-        ax.plot(self.reduced_path_points[:, 0], self.reduced_path_points[:, 1], 'go', label='Reduced Path Points')
-        # Plot B-Spline fitted curve
-        ax.plot(x_fine, y_fine, 'r-', label='B-Spline Curve')
-        # Plot repulsion points
-        ax.scatter(self.repulsions_x, self.repulsions_y, c='red', marker='x', label='Repulsion Points')
+            # Plot reduced path points used for B-Spline fitting
+            ax.plot(self.reduced_path_points[:, 0], self.reduced_path_points[:, 1], 'go-', label='Reduced Path Points', linewidth=1.5, markersize=6)
 
-        # Plot minimum distance line
-        if self.closest_spline_point is not None and self.closest_repulsion_point is not None:
-            ax.plot([self.closest_spline_point[0], self.closest_repulsion_point[0]], 
-                    [self.closest_spline_point[1], self.closest_repulsion_point[1]], 
-                    color='blue', linestyle='--', label='Min Euclidean Distance')
-            ax.scatter(self.closest_spline_point[0], self.closest_spline_point[1], c='blue', marker='o')
-            ax.scatter(self.closest_repulsion_point[0], self.closest_repulsion_point[1], c='blue', marker='o')
+            # Plot B-Spline fitted curve
+            ax.plot(x_fine, y_fine, 'r-', label='B-Spline Curve', linewidth=2)
 
-        ax.set_title('A* Path and Fitted Splines')
-        ax.legend()
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_xticks([i for i in range(0, 50, 1)])
-        ax.set_yticks([i for i in range(0, 50, 1)])
-        ax.invert_yaxis()  # Invert y-axis for top-left origin system
-        plt.grid(True)
-        plt.show()
+            # Plot repulsion points
+            ax.scatter(self.repulsions_x, self.repulsions_y, c='black', marker='x', label='Repulsion Points')
+
+            # Plot minimum distance line
+            if self.closest_spline_point and self.closest_repulsion_point:
+                ax.plot([self.closest_spline_point[0], self.closest_repulsion_point[0]],
+                        [self.closest_spline_point[1], self.closest_repulsion_point[1]],
+                        'b--', label='Min Euclidean Distance', linewidth=1.5)
+                ax.scatter(*self.closest_spline_point, c='blue', edgecolors='k', s=100, zorder=5)
+                ax.scatter(*self.closest_repulsion_point, c='blue', edgecolors='k', s=100, zorder=5)
+
+            # Annotations
+            ax.annotate('Start', xy=(self.path_points[0]), xytext=(self.path_points[0] + np.array([1, 1])),
+                        arrowprops=dict(facecolor='black', shrink=0.05), fontsize=12)
+            ax.annotate('End', xy=(self.path_points[-1]), xytext=(self.path_points[-1] + np.array([1, 1])),
+                        arrowprops=dict(facecolor='black', shrink=0.05), fontsize=12)
+
+            # Enhancing grid and axis
+            ax.set_title('A* Path and Fitted Splines', fontsize=16)
+            ax.legend(fontsize=12)
+            ax.set_xlabel('X', fontsize=14)
+            ax.set_ylabel('Y', fontsize=14)
+            ax.set_xticks(range(0, 50, 5))
+            ax.set_yticks(range(0, 50, 5))
+            ax.invert_yaxis()
+            ax.grid(True, linestyle='--', alpha=0.6)
+            ax.tick_params(axis='both', which='major', labelsize=12)
+
+            plt.tight_layout()
+            plt.show()
 
         return min_distance
 
 
-
-if __name__ == '__main__':
+# if __name__ == '__main__':
     
-    path = [[25, 49], [24, 48], [23, 47], [22, 46], [21, 45], [21, 44], [21, 43], [21, 42], [21, 41], [21, 40], [21, 39], [21, 38], [21, 37], [21, 36], [21, 35], [21, 34], [21, 33], [21, 32], [21, 31], [21, 30], [21, 29], [21, 28], [21, 27], [21, 26], [21, 25], [21, 24], [21, 23], [22, 22], [23, 21], [24, 20], [25, 19], [25, 18], [25, 17], [25, 16], [25, 15], [25, 14], [25, 13], [25, 12], [25, 11], [25, 10], [25, 9], [25, 8], [25, 7], [25, 6], [25, 5], [25, 4], [25, 3], [25, 2], [25, 1], [25, 0]]
-    
-    repulsion_x = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 23, 23, 24, 24, 24, 24, 24, 25, 25, 25, 25, 25, 26, 26, 26, 26, 26, 23, 23, 23, 23, 23, 24, 24, 24, 24, 24, 25, 25, 25, 25, 25, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 24, 24, 24, 24, 24, 25, 25, 25, 25, 25, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 25, 25, 25, 25, 25, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30]
-    repulsion_y = [23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27, 23, 24, 25, 26, 27]
-    path_points = np.asarray(path)
+#     path = [[25, 49], [24, 48], [23, 47], [22, 46], [21, 45], [21, 44], [21, 43], [21, 42], [21, 41], [21, 40], [21, 39], [21, 38], [21, 37], [21, 36], [21, 35], [21, 34], [21, 33], [21, 32],
+#             [21, 31], [21, 30], [21, 29], [21, 28], [21, 27], [21, 26], [21, 25], [21, 24], [21, 23], [22, 22], [23, 21], [24, 20], [25, 19], [25, 18], [25, 17], [25, 16], [25, 15], [25, 14],
+#             [25, 13], [25, 12], [25, 11], [25, 10], [25, 9], [25, 8], [25, 7], [25, 6], [25, 5], [25, 4], [25, 3], [25, 2], [25, 1], [25, 0]]
 
-    post_planner = PathPlanner(path_points, repulsion_x, repulsion_y, epsilon=1.0)
-    post_planner.plot()
+#     repulsion_x = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
+#                     4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2, 2, 2
