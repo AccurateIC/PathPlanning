@@ -193,7 +193,8 @@ class RobotPathPlanner:
         #     self.env.plot_environment_in_memory()
         #     self.env.move_obstacles_on_grid(timestep)
         #     self.env.move_robot_on_grid(timestep)
-        return x_path, y_path
+        return [[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
+    
 if __name__ == '__main__':
     file_path = 'custom_grid_3.npy'
     array = np.load(file_path)
@@ -203,4 +204,5 @@ if __name__ == '__main__':
     # plt.show()
     
     planner = RobotPathPlanner(array)
-    x_path , y_path =  planner.run()
+    path =  planner.run()
+    
