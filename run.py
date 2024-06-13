@@ -196,7 +196,7 @@ class RobotPathPlanner:
         return [[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
     
 if __name__ == '__main__':
-    file_path = 'custom_grid_3.npy'
+    file_path = 'custom_grid_250.npy'
     array = np.load(file_path)
     
     unique_values, counts = np.unique(array, return_counts=True)
@@ -205,4 +205,3 @@ if __name__ == '__main__':
     
     planner = RobotPathPlanner(array)
     path =  planner.run()
-    

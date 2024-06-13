@@ -4,6 +4,7 @@ import numpy as np
 
 class PathPlanner:
     def __init__(self, environment, obstacle_penalty: int, repulsion_penalty: int):
+        # __slots__ = ['environment', 'obstacle_penalty', 'repulsion_penalty', 'open', 'closed']
         self.environment = environment
         self.obstacle_penalty = obstacle_penalty
         self.repulsion_penalty = repulsion_penalty
@@ -18,7 +19,7 @@ class PathPlanner:
         # print("Repulsions:")
         # print("Repulsion X:", environment.repulsion_x, "length", len(environment.repulsion_x))
         # print("Repulsion Y:", environment.repulsion_y,"length", len(environment.repulsion_x))
-
+    
     def euclidian_distance(self, x1, y1, x2, y2):
         return math.sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2))
 
@@ -29,10 +30,10 @@ class PathPlanner:
         return -1 < x < self.environment.grid_w and -1 < y < self.environment.grid_h
 
     def is_valid(self, x, y):
-        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['k'] is not None and self.environment.grid[y][x]['repulsion_factor'] == 0
+        return not self.environment.grid[y][x].obstacle and self.environment.grid[y][x].k is not None and self.environment.grid[y][x].repulsion_factor == 0
 
     def is_free_to_move(self, x, y):
-        return not self.environment.grid[y][x]['obstacle'] and self.environment.grid[y][x]['repulsion_factor'] == 0
+        return not self.environment.grid[y][x].obstacle and self.environment.grid[y][x].repulsion_factor == 0
 
     def is_never_visited(self, x, y):
         return self.environment.grid[y][x] not in self.open and self.environment.grid[y][x] not in self.closed
@@ -58,26 +59,27 @@ class PathPlanner:
 
     def update_node_in_open_list(self, x, y, k):
         for index, _ in enumerate(self.open):
-            if self.open[index]['x'] == x and self.open[index]['y'] == y:
-                self.open[index]['k'] = k
+            if self.open[index].x == x and self.open[index].y == y:
+                self.open[index].k = k
                 break
 
     def add_repulsion_penalty(self):
         for y in range(self.environment.grid_h):
+            
             for x in range(self.environment.grid_w):
-                self.environment.grid[y][x]['k'] = self.environment.grid[y][x]['k'] + (self.environment.grid[y][x]['repulsion_factor'] * self.repulsion_penalty) if self.environment.grid[y][x]['k'] is not None else self.environment.grid[y][x]['k']
+                self.environment.grid[y][x].k = self.environment.grid[y][x].k + (self.environment.grid[y][x].repulsion_factor * self.repulsion_penalty) if self.environment.grid[y][x].k is not None else self.environment.grid[y][x].k
 
     def sort_based_on_weighted_distance_to_robot_and_heuristic(self, node, k_factor):
-        return (k_factor * node['k']) + ((1 - k_factor) * node['robot_distance'])
+        return (k_factor * node.k) + ((1 - k_factor) * node.robot_distance)
 
     def sort_based_on_weighted_distance_to_end_and_heuristic(self, node, k_factor):
-        return (k_factor * node['k']) + ((1 - k_factor) * node['end_distance'])
+        return (k_factor * node.k) + ((1 - k_factor) * node.end_distance)
 
     def sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(self, node, k_factor, o_factor):
-        return (k_factor * node['k']) + ((1 - k_factor) * node['robot_distance']) + (o_factor * node['total_obstacle_distance'])
+        return (k_factor * node.k) + ((1 - k_factor) * node.robot_distance) + (o_factor * node.total_obstacle_distance)
 
     def sort_based_on_weighted_distance_to_end_and_heuristic_and_obstacle(self, node, k_factor, o_factor):
-        return (k_factor * node['k']) + ((1 - k_factor) * node['end_distance']) + (o_factor * node['total_obstacle_distance'])
+        return (k_factor * node.k) + ((1 - k_factor) * node.end_distance) + (o_factor * node.total_obstacle_distance)
 
     def expand_all_neighbours_from_end_to_robot(self, x, y, movement, k_factor):
         for dx, dy in self.find_all_neighbour_offsets(movement, 1):
@@ -85,15 +87,15 @@ class PathPlanner:
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
                         self.open.append(self.environment.grid[index_y][index_x])
                     else:
-                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
-                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                        new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
                 else:
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.obstacle_penalty
+                        self.environment.grid[index_y][index_x].k = self.obstacle_penalty
                         self.open.append(self.environment.grid[index_y][index_x])
             else:
                 continue
@@ -103,19 +105,19 @@ class PathPlanner:
 
     def calculate_all_cost_and_heuristics_from_end_to_robot(self, movement, k_factor):
         x, y = self.environment.end_x, self.environment.end_y
-        self.environment.grid[y][x]['k'] = 0
-        self.environment.grid[y][x]['b'] = None
+        self.environment.grid[y][x].k = 0
+        self.environment.grid[y][x].b = None
         self.open.append(self.environment.grid[y][x])
         while True:
             # self.environment.plot_environment()
-            if any([graph_node['x'] == self.environment.robot_x and graph_node['y'] == self.environment.robot_y for graph_node in self.closed]):
+            if any([graph_node.x == self.environment.robot_x and graph_node.y == self.environment.robot_y for graph_node in self.closed]):
                 break
             else:
                 top_node = self.expand_all_neighbours_from_end_to_robot(x, y, movement, k_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
-                    x = self.open[0]['x']
-                    y = self.open[0]['y']
+                    x = self.open[0].x
+                    y = self.open[0].y
         self.add_repulsion_penalty()
 
     def expand_all_neighbours_from_robot_to_end(self, x, y, movement, k_factor):
@@ -124,15 +126,15 @@ class PathPlanner:
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
                         self.open.append(self.environment.grid[index_y][index_x])
                     else:
-                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
-                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                        new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
                 else:
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.obstacle_penalty
+                        self.environment.grid[index_y][index_x].k = self.obstacle_penalty
                         self.open.append(self.environment.grid[index_y][index_x])
             else:
                 continue
@@ -142,19 +144,19 @@ class PathPlanner:
 
     def calculate_all_cost_and_heuristics_from_robot_to_end(self, movement, k_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
-        self.environment.grid[y][x]['k'] = 0
-        self.environment.grid[y][x]['b'] = None
+        self.environment.grid[y][x].k = 0
+        self.environment.grid[y][x].b = None
         self.open.append(self.environment.grid[y][x])
         while True:
             self.environment.plot_environment()
-            if any([graph_node['x'] == self.environment.end_x and graph_node['y'] == self.environment.end_y for graph_node in self.closed]):
+            if any([graph_node.x == self.environment.end_x and graph_node.y == self.environment.end_y for graph_node in self.closed]):
                 break
             else:
                 top_node = self.expand_all_neighbours_from_robot_to_end(x, y, movement, k_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
-                    x = self.open[0]['x']
-                    y = self.open[0]['y']
+                    x = self.open[0].x
+                    y = self.open[0].y
         self.add_repulsion_penalty()
 
     def expand_non_obstacle_neighbours_from_end_to_robot(self, x, y, movement, k_factor):
@@ -163,11 +165,11 @@ class PathPlanner:
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
                         self.open.append(self.environment.grid[index_y][index_x])
                     else:
-                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
-                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                        new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
             else:
                 continue
@@ -177,18 +179,18 @@ class PathPlanner:
 
     def calculate_non_obstacle_cost_and_heuristics_from_end_to_robot(self, movement, k_factor):
         x, y = self.environment.end_x, self.environment.end_y
-        self.environment.grid[y][x]['k'] = 0
-        self.environment.grid[y][x]['b'] = None
+        self.environment.grid[y][x].k = 0
+        self.environment.grid[y][x].b = None
         self.open.append(self.environment.grid[y][x])
         while True:
-            if any([graph_node['x'] == self.environment.robot_x and graph_node['y'] == self.environment.robot_y for graph_node in self.closed]):
+            if any([graph_node.x == self.environment.robot_x and graph_node.y == self.environment.robot_y for graph_node in self.closed]):
                 break
             else:
                 top_node = self.expand_non_obstacle_neighbours_from_end_to_robot(x, y, movement, k_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
-                    x = self.open[0]['x']
-                    y = self.open[0]['y']
+                    x = self.open[0].x
+                    y = self.open[0].y
         self.add_repulsion_penalty()
 
     def expand_non_obstacle_neighbours_from_robot_to_end(self, x, y, movement, k_factor):
@@ -197,11 +199,11 @@ class PathPlanner:
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
                         self.open.append(self.environment.grid[index_y][index_x])
                     else:
-                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
-                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                        new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
             else:
                 continue
@@ -211,18 +213,18 @@ class PathPlanner:
 
     def calculate_non_obstacle_cost_and_heuristics_from_robot_to_end(self, movement, k_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
-        self.environment.grid[y][x]['k'] = 0
-        self.environment.grid[y][x]['b'] = None
+        self.environment.grid[y][x].k = 0
+        self.environment.grid[y][x].b = None
         self.open.append(self.environment.grid[y][x])
         while True:
-            if any([graph_node['x'] == self.environment.end_x and graph_node['y'] == self.environment.end_y for graph_node in self.closed]):
+            if any([graph_node.x == self.environment.end_x and graph_node.y == self.environment.end_y for graph_node in self.closed]):
                 break
             else:
                 top_node = self.expand_non_obstacle_neighbours_from_robot_to_end(x, y, movement, k_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
-                    x = self.open[0]['x']
-                    y = self.open[0]['y']
+                    x = self.open[0].x
+                    y = self.open[0].y
         self.add_repulsion_penalty()
 
     def expand_neighbours_from_end_to_robot(self, x, y, movement, k_factor, o_factor):
@@ -231,11 +233,11 @@ class PathPlanner:
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
                         self.open.append(self.environment.grid[index_y][index_x])
                     else:
-                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
-                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                        new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
             else:
                 continue
@@ -245,19 +247,19 @@ class PathPlanner:
 
     def calculate_cost_and_heuristics_from_end_to_robot(self, movement, k_factor, o_factor):
         x, y = self.environment.end_x, self.environment.end_y
-        self.environment.grid[y][x]['k'] = 0
-        self.environment.grid[y][x]['b'] = None
+        self.environment.grid[y][x].k = 0
+        self.environment.grid[y][x].b = None
         self.open.append(self.environment.grid[y][x])
         while True:
             # self.environment.plot_environment_on_grid()
-            if any([graph_node['x'] == self.environment.robot_x and graph_node['y'] == self.environment.robot_y for graph_node in self.closed]):
+            if any([graph_node.x == self.environment.robot_x and graph_node.y == self.environment.robot_y for graph_node in self.closed]):
                 break
             else:
                 top_node = self.expand_neighbours_from_end_to_robot(x, y, movement, k_factor, o_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
-                    x = self.open[0]['x']
-                    y = self.open[0]['y']
+                    x = self.open[0].x
+                    y = self.open[0].y
         self.add_repulsion_penalty()
 
     def expand_neighbours_from_robot_to_end(self, x, y, movement, k_factor, o_factor):
@@ -266,11 +268,11 @@ class PathPlanner:
             if self.is_inside_grid(index_x, index_y):
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
-                        self.environment.grid[index_y][index_x]['k'] = self.environment.grid[y][x]['k'] + self.euclidian_distance(x, y, index_x, index_y)
+                        self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
                         self.open.append(self.environment.grid[index_y][index_x])
                     else:
-                        new_k = self.environment.grid[y][x]['k'] + self.euclidian_distance(0, 0, dx, dy)
-                        if new_k < self.environment.grid[index_y][index_x]['k']:
+                        new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
+                        if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
             else:
                 continue
@@ -280,18 +282,18 @@ class PathPlanner:
 
     def calculate_cost_and_heuristics_from_robot_to_end(self, movement, k_factor, o_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
-        self.environment.grid[y][x]['k'] = 0
-        self.environment.grid[y][x]['b'] = None
+        self.environment.grid[y][x].k = 0
+        self.environment.grid[y][x].b = None
         self.open.append(self.environment.grid[y][x])
         while True:
-            if any([graph_node['x'] == self.environment.end_x and graph_node['y'] == self.environment.end_y for graph_node in self.closed]):
+            if any([graph_node.x == self.environment.end_x and graph_node.y == self.environment.end_y for graph_node in self.closed]):
                 break
             else:
                 top_node = self.expand_neighbours_from_robot_to_end(x, y, movement, k_factor, o_factor)
                 self.closed.append(top_node)
                 if len(self.open) > 0:
-                    x = self.open[0]['x']
-                    y = self.open[0]['y']
+                    x = self.open[0].x
+                    y = self.open[0].y
         self.add_repulsion_penalty()
 
     def raw_path_finder_from_robot_to_end(self, movement):
@@ -303,7 +305,7 @@ class PathPlanner:
             if x == self.environment.end_x and y == self.environment.end_y:
                 break
             neighbours = [[x + dx, y + dy] for dx, dy in self.find_all_neighbour_offsets(movement, 1) if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and [x + dx, y + dy] not in path]
-            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]]['k'])
+            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]].k)
             dx, dy = neighbours[0][0] - x, neighbours[0][1] - y
             orientations.append([dx, dy])
             x, y = neighbours[0]
@@ -318,7 +320,7 @@ class PathPlanner:
             if x == self.environment.robot_x and y == self.environment.robot_Y:
                 break
             neighbours = [[x + dx, y + dy] for dx, dy in self.find_all_neighbour_offsets(movement, 1) if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and [x + dx, y + dy] not in path]
-            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]]['k'])
+            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]].k)
             dx, dy = neighbours[0][0] - x, neighbours[0][1] - y
             orientations.append([dx, dy])
             x, y = neighbours[0]
@@ -352,7 +354,7 @@ class PathPlanner:
     #     return new_path
 
     # def calculate_path_cost(self, path):
-    #     return sum([self.environment.grid[y][x]['k'] for x, y in path])
+    #     return sum([self.environment.grid[y][x].k for x, y in path])
 
     # def choose_best_path(self, costs: dict, paths: dict):
     #     assert len(costs) == len(paths)
@@ -401,7 +403,7 @@ class PathPlanner:
 
     # def does_path_hit_obstacles(self, path):
     #     for x_path, y_path in path:
-    #         if self.environment.grid[y_path][x_path]['obstacle']:
+    #         if self.environment.grid[y_path][x_path].obstacle:
     #             return False
     #     return True
 
@@ -439,7 +441,7 @@ class PathPlanner:
     #     new_path = []
     #     for index1, (x, y) in enumerate(path):
     #         new_path.append([x, y])
-    #         if any([self.environment.grid[index_y][index_x]['obstacle'] or self.environment.grid[index_y][index_x]['repulsion_factor'] > 0 for index_x, index_y in self.find_neighbours(x, y, min_distance)]):
+    #         if any([self.environment.grid[index_y][index_x].obstacle or self.environment.grid[index_y][index_x].repulsion_factor > 0 for index_x, index_y in self.find_neighbours(x, y, min_distance)]):
     #             for index2, (future_x, future_y) in enumerate(path[index1:]):
     #                 if not self.environment.grid[future_y][future_x]:
     #                 astar_end_x, astar_end_y = 
