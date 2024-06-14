@@ -24,3 +24,5 @@ class Node:
             text = text + f'{key}: {value}, '
         text = '[' + text[:-2] + ']'
         return text
+    def __lt__(self, other):
+        return self.k < other.k

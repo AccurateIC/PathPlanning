@@ -1,8 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
-from path_planning_utils import environment,bstar
+from path_planning_utils import environment, bstar
 from path_planning_utils.post_process import PathPlanner
+import cProfile
+import pstats
+import io
+import os
 
 
 @dataclass
@@ -189,19 +193,30 @@ class RobotPathPlanner:
 
         post_planner = PathPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
         x_path , y_path , min_distance = post_planner.infer_spline()
+        # post_planner.plot()
+        
         # for timestep, _ in enumerate(path[1:], 1):
         #     self.env.plot_environment_in_memory()
         #     self.env.move_obstacles_on_grid(timestep)
         #     self.env.move_robot_on_grid(timestep)
         return [[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
     
-if __name__ == '__main__':
-    file_path = 'custom_grid_250.npy'
+def main():
+    file_path = 'custom_grid_250_2.npy'
     array = np.load(file_path)
-    
-    unique_values, counts = np.unique(array, return_counts=True)
-    # plt.imshow(array)
-    # plt.show()
-    
     planner = RobotPathPlanner(array)
-    path =  planner.run()
+    profiler = cProfile.Profile()
+    profiler.enable()
+    path = planner.run()
+    profiler.disable()
+    profile_filename = 'profile_results.prof'
+    profiler.dump_stats(profile_filename)
+    
+    # Print path to verify
+    print(path)
+
+    # Visualize the profiling results using SnakeViz
+    os.system(f'snakeviz {profile_filename}')
+
+if __name__ == '__main__':
+    main()

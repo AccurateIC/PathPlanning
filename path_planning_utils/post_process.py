@@ -78,7 +78,8 @@ class PathPlanner:
         x_fine, y_fine = self.get_b_spline(self.spline_degree)
 
         if x_fine is not None and y_fine is not None:
-            min_distance, _ = self.closest_distance_to_repulsion(x_fine, y_fine)
+            # min_distance, _ = self.closest_distance_to_repulsion(x_fine, y_fine)
+            min_distance = 0
             return x_fine, y_fine, min_distance
 
         return None, None, None
@@ -121,23 +122,11 @@ class PathPlanner:
             ax.legend(fontsize=12)
             ax.set_xlabel('X', fontsize=14)
             ax.set_ylabel('Y', fontsize=14)
-            ax.set_xticks(range(0, 50, 5))
-            ax.set_yticks(range(0, 50, 5))
+            ax.set_xticks(range(0, 250, 5))
+            ax.set_yticks(range(0, 250, 5))
             ax.invert_yaxis()
             ax.grid(True, linestyle='--', alpha=0.6)
             ax.tick_params(axis='both', which='major', labelsize=12)
 
             plt.tight_layout()
             plt.show()
-
-        return min_distance
-
-
-# if __name__ == '__main__':
-    
-#     path = [[25, 49], [24, 48], [23, 47], [22, 46], [21, 45], [21, 44], [21, 43], [21, 42], [21, 41], [21, 40], [21, 39], [21, 38], [21, 37], [21, 36], [21, 35], [21, 34], [21, 33], [21, 32],
-#             [21, 31], [21, 30], [21, 29], [21, 28], [21, 27], [21, 26], [21, 25], [21, 24], [21, 23], [22, 22], [23, 21], [24, 20], [25, 19], [25, 18], [25, 17], [25, 16], [25, 15], [25, 14],
-#             [25, 13], [25, 12], [25, 11], [25, 10], [25, 9], [25, 8], [25, 7], [25, 6], [25, 5], [25, 4], [25, 3], [25, 2], [25, 1], [25, 0]]
-
-#     repulsion_x = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
-#                     4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2, 2, 2
