@@ -1,4 +1,4 @@
-from path_planning_utils import node
+from singaboat_vrx.custom_plan1.path_planning_utils import node
 import math
 import matplotlib.pyplot as plt
 

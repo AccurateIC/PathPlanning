@@ -1,5 +1,5 @@
 import math
-from path_planning_utils import dubin
+from singaboat_vrx.custom_plan1.path_planning_utils import dubin
 import numpy as np
 
 class PathPlanner:

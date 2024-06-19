@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
-from path_planning_utils import environment,bstar
-from path_planning_utils.post_process import PathPlanner
+from singaboat_vrx.custom_plan1.path_planning_utils import environment,bstar
+import math
+from singaboat_vrx.custom_plan1.path_planning_utils.post_process import PathPlanner
 
 
 @dataclass
@@ -120,13 +121,18 @@ class RobotPathPlanner:
 
         return env
 
-    def get_path_parameters_from_numpy_array(self):
+    def get_path_parameters_from_numpy_array(self ):
         """
         Extracts the necessary path planning parameters from the numpy array.
 
         Returns:
             PathParameters: A dataclass containing the extracted parameters.
         """
+        length=int(math.sqrt(len(self.array)))
+        print(length)
+        # if self.gps_call:
+        # print("boat position",self.boat_x, self.boat_y, self.boat_z)
+        self.array = np.array(self.array).reshape((length, length))
         GRID_H, GRID_W = self.array.shape
         
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
@@ -189,11 +195,17 @@ class RobotPathPlanner:
 
         post_planner = PathPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
         x_path , y_path , min_distance = post_planner.infer_spline()
+        self.path=[[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
+        points_list_with_1 = np.array([point + [1] for point in self.path])
+    
+        points_list_with_1[:, 0] -= 5
+        points_list_with_1[:, 1] -= 25
+        
         # for timestep, _ in enumerate(path[1:], 1):
         #     self.env.plot_environment_in_memory()
         #     self.env.move_obstacles_on_grid(timestep)
         #     self.env.move_robot_on_grid(timestep)
-        return [[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
+        return points_list_with_1
     
 if __name__ == '__main__':
     file_path = 'custom_grid_250.npy'
