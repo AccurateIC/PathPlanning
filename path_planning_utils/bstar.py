@@ -1,15 +1,19 @@
 import math
 import heapq
 from path_planning_utils import dubin
+from matplotlib import pyplot as plt
+import numpy as np
 
 class PathPlanner:
     def __init__(self, environment, obstacle_penalty: int, repulsion_penalty: int):
         self.environment = environment
+       
         self.obstacle_penalty = obstacle_penalty
         self.repulsion_penalty = repulsion_penalty
         self.open = []
         self.closed = set()
         self.open_set = set()
+
 
     def euclidian_distance(self, x1, y1, x2, y2):
         return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)

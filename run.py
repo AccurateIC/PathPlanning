@@ -8,9 +8,34 @@ import pstats
 import io
 import os
 
-
 @dataclass
 class PathParameters:
+    """
+    Data class to store parameters for path planning.
+
+    Attributes:
+        GRID_H (int): Height of the grid.
+        GRID_W (int): Width of the grid.
+        ROBOT_X (int): X-coordinate of the robot.
+        ROBOT_Y (int): Y-coordinate of the robot.
+        ROBOT_DX (float): X-direction vector of the robot.
+        ROBOT_DY (float): Y-direction vector of the robot.
+        END_X (int): X-coordinate of the end point.
+        END_Y (int): Y-coordinate of the end point.
+        OBSTACLES_X (list): List of X-coordinates of obstacles.
+        OBSTACLES_Y (list): List of Y-coordinates of obstacles.
+        OBSTACLES_DX (list): List of X-direction vectors of obstacles.
+        OBSTACLES_DY (list): List of Y-direction vectors of obstacles.
+        MAJOR_RANGES (list): List of major ranges for obstacles.
+        MINOR_RANGES (list): List of minor ranges for obstacles.
+        OBSTACLE_PENALTY (float): Penalty factor for obstacles.
+        REPULSION_PENALTY (float): Penalty factor for repulsion.
+        REPULSION_X (list): List of X-coordinates of repulsion points.
+        REPULSION_Y (list): List of Y-coordinates of repulsion points.
+        REPULSION_VALUES (list): List of repulsion values.
+        MOVEMENT (str): Movement type (default is "queen").
+        K_FACTOR (float): K-factor for path planning (default is 0.5).
+    """
     GRID_H: int
     GRID_W: int
     ROBOT_X: int
@@ -27,13 +52,12 @@ class PathParameters:
     MINOR_RANGES: list
     OBSTACLE_PENALTY: float
     REPULSION_PENALTY: float
-    REPULSION_X:list
-    REPULSION_Y :list
+    REPULSION_X: list
+    REPULSION_Y: list
+    REPULSION_VALUES: list
     MOVEMENT: str = "queen"
     K_FACTOR: float = 0.5
-    
-    
-    
+
 
 class RobotPathPlanner:
     def __init__(self, array, robot_value=1, end_value=2, obstacle_value=500, repulsion_value=3):
@@ -108,20 +132,10 @@ class RobotPathPlanner:
         Returns:
             Environment: The initialized environment object.
         """
-        env = environment.Environment(self.params.GRID_H, self.params.GRID_W, repulsion_x=self.params.REPULSION_X, repulsion_y=self.params.REPULSION_Y)
-        env.put_robot_in_memory(self.params.ROBOT_X, self.params.ROBOT_Y, self.params.ROBOT_DX, self.params.ROBOT_DY)
-        env.put_end_in_memory(self.params.END_X, self.params.END_Y)
-        env.put_obstacles_in_memory(self.params.OBSTACLES_X, self.params.OBSTACLES_Y, self.params.OBSTACLES_DX, self.params.OBSTACLES_DY, self.params.MAJOR_RANGES, self.params.MINOR_RANGES)
-        env.put_collision_points_in_memory()
-        # env.plot_environment_in_memory(pause_time=2)
-        env.get_occupancy_grid()
-        # env.plot_environment_on_grid(pause_time=5)
-    
-
-        # print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        # print("obstacle path :: " ,   env.obstacles_path)
-        # print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
+        env = environment.Environment(self.params.GRID_H, self.params.GRID_W)
+        env.put_robot_and_end_in_memory(self.params.ROBOT_X, self.params.ROBOT_Y, self.params.ROBOT_DX, self.params.ROBOT_DY, self.params.END_X, self.params.END_Y)
+        env.put_obstacles_in_memory(self.params.OBSTACLES_X, self.params.OBSTACLES_Y, self.params.OBSTACLES_DX, self.params.OBSTACLES_DY)
+        env.put_repulsion_in_memory(self.params.REPULSION_X, self.params.REPULSION_Y, self.params.REPULSION_VALUES)
         return env
 
     def get_path_parameters_from_numpy_array(self):
@@ -144,9 +158,9 @@ class RobotPathPlanner:
         
         OBSTACLES_DX, OBSTACLES_DY = [0] * len(OBSTACLES_X), [0] * len(OBSTACLES_Y)
         OBSTACLE_PENALTY = 500.0
-        REPULSION_PENALTY = 10.0
+        REPULSION_PENALTY = 100.0
         
-        MAJOR_RANGES, MINOR_RANGES = [[-1, 3], [-1, 1], [-1, 1],[-1, 1]], [[-2, 2], [-2, 2],[-2, 2],[-2, 2]]
+        MAJOR_RANGES, MINOR_RANGES = [0, 0] * len(OBSTACLES_X), [0, 0] * len(OBSTACLES_Y)  
         
         # Check if the robot's position is in the list of obstacles
         robot_position = [ROBOT_X, ROBOT_Y]
@@ -159,15 +173,13 @@ class RobotPathPlanner:
         
         ROBOT_DX, ROBOT_DY = self.get_dx_dy([ROBOT_X, ROBOT_Y], [END_X, END_Y])
         
-        REPULSION_X, REPULSION_Y, repulsion_values = [], [], []
+        REPULSION_X, REPULSION_Y, REPULSION_VALUES = [], [], []
         for y in range(self.array.shape[0]):
             for x in range(self.array.shape[1]):
-                if self.array[y, x]  in range(140,149):
-                    
+                if self.array[y, x] == 5:
                     REPULSION_X.append(x)
                     REPULSION_Y.append(y)
-                    repulsion_values.append(self.array[y, x])
-                    
+                    REPULSION_VALUES.append(self.array[y, x])
         
         return PathParameters(
             GRID_H=GRID_H, GRID_W=GRID_W, ROBOT_X=ROBOT_X, ROBOT_Y=ROBOT_Y, 
@@ -175,11 +187,15 @@ class RobotPathPlanner:
             OBSTACLES_X=OBSTACLES_X, OBSTACLES_Y=OBSTACLES_Y, OBSTACLES_DX=OBSTACLES_DX, 
             OBSTACLES_DY=OBSTACLES_DY, MAJOR_RANGES=MAJOR_RANGES, MINOR_RANGES=MINOR_RANGES, 
             OBSTACLE_PENALTY=OBSTACLE_PENALTY, REPULSION_PENALTY=REPULSION_PENALTY,
-            REPULSION_X=REPULSION_X , REPULSION_Y=REPULSION_Y)
+            REPULSION_X=REPULSION_X, REPULSION_Y=REPULSION_Y, REPULSION_VALUES=REPULSION_VALUES
+        )
 
     def run(self):
         """
         Executes the path planning algorithm and plots the robot's movement through each timestep.
+        
+        Returns:
+            list: Smoothed path for the robot as a list of [x, y] coordinates.
         """
         self.planner.calculate_all_cost_and_heuristics_from_end_to_robot(self.params.MOVEMENT, self.params.K_FACTOR)
         
@@ -192,18 +208,24 @@ class RobotPathPlanner:
         path_points = np.asarray(path)
 
         post_planner = PathPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
-        x_path , y_path , min_distance = post_planner.infer_spline()
+        x_path, y_path, _ = post_planner.infer_spline()
         # post_planner.plot()
-        
-        # for timestep, _ in enumerate(path[1:], 1):
-        #     self.env.plot_environment_in_memory()
-        #     self.env.move_obstacles_on_grid(timestep)
-        #     self.env.move_robot_on_grid(timestep)
-        return [[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
+        return [[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)]
     
 def main():
-    file_path = 'custom_grid_250_2.npy'
+    """
+    Main function to load the environment array, initialize the planner, run the planning algorithm,
+    and visualize the results.
+    """
+    file_path = 'bhavya 23.npy'
+    
     array = np.load(file_path)
+    array = np.rot90(array)
+    array = np.fliplr(array)
+    
+    # plt.imshow(array, cmap='viridis')
+    # plt.show()
+
     planner = RobotPathPlanner(array)
     profiler = cProfile.Profile()
     profiler.enable()
@@ -211,11 +233,8 @@ def main():
     profiler.disable()
     profile_filename = 'profile_results.prof'
     profiler.dump_stats(profile_filename)
-    
-    # Print path to verify
     print(path)
 
-    # Visualize the profiling results using SnakeViz
     os.system(f'snakeviz {profile_filename}')
 
 if __name__ == '__main__':

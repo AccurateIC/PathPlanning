@@ -51,27 +51,36 @@ class GridVisualizer:
             self.grid.change_current_element(ROBOT_START)
         elif event.key == 'e':  # Switch to end point mode
             self.grid.change_current_element(END_POINT)
+        elif event.key == 'z':  # Zoom in
+            self.zoom('in')
+        elif event.key == 'x':  # Zoom out
+            self.zoom('out')
 
     def on_scroll(self, event):
-        base_scale = 1.1
         if event.button == 'up':
-            self.zoom_factor *= base_scale
+            self.zoom('in')
         elif event.button == 'down':
-            self.zoom_factor /= base_scale
-        self.zoom_factor = min(max(self.zoom_factor, 1), 10)  # limit zoom factor
-        self.apply_zoom(event)
+            self.zoom('out')
 
-    def apply_zoom(self, event):
+    def zoom(self, direction):
+        base_scale = 1.1
+        out_scale = 0.9
+        if direction == 'in':
+            self.zoom_factor *= base_scale
+        elif direction == 'out':
+            self.zoom_factor = out_scale
+        self.zoom_factor = min(max(self.zoom_factor, 1), 10)  # limit zoom factor
+        self.apply_zoom()
+
+    def apply_zoom(self):
         cur_xlim = self.ax.get_xlim()
         cur_ylim = self.ax.get_ylim()
-        xdata = event.xdata
-        ydata = event.ydata
+        xdata = (cur_xlim[0] + cur_xlim[1]) / 2  # center x data
+        ydata = (cur_ylim[0] + cur_ylim[1]) / 2  # center y data
         new_width = (cur_xlim[1] - cur_xlim[0]) / self.zoom_factor
         new_height = (cur_ylim[1] - cur_ylim[0]) / self.zoom_factor
-        relx = (cur_xlim[1] - xdata) / (cur_xlim[1] - cur_xlim[0])
-        rely = (cur_ylim[1] - ydata) / (cur_ylim[1] - cur_ylim[0])
-        self.ax.set_xlim([xdata - new_width * (1 - relx), xdata + new_width * relx])
-        self.ax.set_ylim([ydata - new_height * (1 - rely), ydata + new_height * rely])
+        self.ax.set_xlim([xdata - new_width / 2, xdata + new_width / 2])
+        self.ax.set_ylim([ydata - new_height / 2, ydata + new_height / 2])
         self.update_plot()
 
     def update_plot(self):
@@ -83,7 +92,7 @@ class GridVisualizer:
                 color_grid[y, x] = color_rgb
         
         self.ax.imshow(color_grid, origin='upper', extent=[0, self.grid.size, 0, self.grid.size])
-        self.ax.set_title('Left Click to place points\nKeys: "o" - Obstacle, "r" - Repulsion, "s" - Start, "e" - End')
+        self.ax.set_title('Left Click to place points\nKeys: "o" - Obstacle, "r" - Repulsion, "s" - Start, "e" - End, "z" - Zoom in, "x" - Zoom out')
         plt.draw()
 
     def create_legend(self):
@@ -101,8 +110,8 @@ class GridVisualizer:
 
 def main():
     mode = input("Enter mode (new/edit): ").strip().lower()
-    filename = 'custom_grid_250.npy'
-    grid_size = 250
+    filename = 'custom_grid_1020.npy'
+    grid_size = 100
 
     if mode == 'edit' and os.path.exists(filename):
         grid_data = np.load(filename)
