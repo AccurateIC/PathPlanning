@@ -3,7 +3,7 @@ from matplotlib.patches import Patch
 import matplotlib.colors as mcolors
 import numpy as np
 import os
-from grid import Grid, EMPTY, ROBOT_START, END_POINT, OBSTACLE, REPULSION
+from grid import Grid, EMPTY, ROBOT_START, END_POINT, OBSTACLE, REPULSION,TRACE
 
 # Colors for different elements
 color_map = {
@@ -11,7 +11,9 @@ color_map = {
     ROBOT_START: 'green',
     END_POINT: 'red',
     OBSTACLE: 'black',
-    REPULSION: 'blue'
+    REPULSION: 'blue',
+    TRACE : 'yellow'
+
 }
 
 class GridVisualizer:
@@ -47,6 +49,8 @@ class GridVisualizer:
             self.grid.change_current_element(OBSTACLE)
         elif event.key == 'r':  # Switch to repulsion mode
             self.grid.change_current_element(REPULSION)
+        elif event.key == 't':  # Switch to repulsion mode
+            self.grid.change_current_element(TRACE)
         elif event.key == 's':  # Switch to robot start mode
             self.grid.change_current_element(ROBOT_START)
         elif event.key == 'e':  # Switch to end point mode
@@ -92,7 +96,7 @@ class GridVisualizer:
                 color_grid[y, x] = color_rgb
         
         self.ax.imshow(color_grid, origin='upper', extent=[0, self.grid.size, 0, self.grid.size])
-        self.ax.set_title('Left Click to place points\nKeys: "o" - Obstacle, "r" - Repulsion, "s" - Start, "e" - End, "z" - Zoom in, "x" - Zoom out')
+        self.ax.set_title('Left Click to place points\nKeys: "o" - Obstacle, "r" - Repulsion, "s" - Start, "e" - End, \n"z" - Zoom in, "x" - Zoom out , "t" - Trace' )
         plt.draw()
 
     def create_legend(self):
@@ -101,6 +105,7 @@ class GridVisualizer:
             Patch(facecolor='green', edgecolor='black', label='Robot Start'),
             Patch(facecolor='red', edgecolor='black', label='End Point'),
             Patch(facecolor='black', edgecolor='black', label='Obstacle'),
+            Patch(facecolor='yellow', edgecolor='black', label='Trace'),
             Patch(facecolor='blue', edgecolor='black', label='Repulsion')
         ]
         self.ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.15, 1))
@@ -110,7 +115,7 @@ class GridVisualizer:
 
 def main():
     mode = input("Enter mode (new/edit): ").strip().lower()
-    filename = 'custom_grid_1020.npy'
+    filename = 'custom_trace_grid_7.npy'
     grid_size = 100
 
     if mode == 'edit' and os.path.exists(filename):
@@ -125,6 +130,6 @@ def main():
     visualizer = GridVisualizer(grid)
     visualizer.show()
     grid.save_grid(filename)
-
+    
 if __name__ == '__main__':
     main()

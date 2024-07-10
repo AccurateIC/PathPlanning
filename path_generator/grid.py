@@ -6,11 +6,14 @@ ROBOT_START = 1
 END_POINT = 2
 OBSTACLE = 500
 REPULSION = 140
+TRACE = 450
 
 class Grid:
     def __init__(self, size):
         self.size = size
         self.grid = np.zeros((size, size), dtype=int)
+        self.grid[size][size/2] = 1
+        self.grid[size][0] = 2
         self.current_element = ROBOT_START
 
     def update_grid(self, x, y):
@@ -25,6 +28,10 @@ class Grid:
             self.grid[y, x] = OBSTACLE
         elif self.current_element == REPULSION:
             self.grid[y, x] = REPULSION
+        elif self.current_element == TRACE:
+            self.grid[y, x] = TRACE
+        elif self.current_element == TRACE:
+            self.grid[y, x] = TRACE
 
     def change_current_element(self, element):
         self.current_element = element
