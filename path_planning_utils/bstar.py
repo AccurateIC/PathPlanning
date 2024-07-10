@@ -1,73 +1,64 @@
 import math
 from singaboat_vrx.custom_plan1.path_planning_utils import dubin
+import heapq
+from matplotlib import pyplot as plt
 import numpy as np
 
 class PathPlanner:
     def __init__(self, environment, obstacle_penalty: int, repulsion_penalty: int):
-        # __slots__ = ['environment', 'obstacle_penalty', 'repulsion_penalty', 'open', 'closed']
         self.environment = environment
+       
         self.obstacle_penalty = obstacle_penalty
         self.repulsion_penalty = repulsion_penalty
         self.open = []
-        self.closed = []
-        
-        
-        # print("________________________________________________________________")
-        # print("Obstacles : ")
-        # for obstacle in environment.current_obstacles_position.values():
-        #     print(obstacle)
-        # print("Repulsions:")
-        # print("Repulsion X:", environment.repulsion_x, "length", len(environment.repulsion_x))
-        # print("Repulsion Y:", environment.repulsion_y,"length", len(environment.repulsion_x))
-    
+        self.closed = set()
+        self.open_set = set()
+
+
     def euclidian_distance(self, x1, y1, x2, y2):
-        return math.sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2))
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
     def manhattan_distance(self, x1, y1, x2, y2):
         return abs(x2 - x1) + abs(y2 - y1)
 
     def is_inside_grid(self, x, y):
-        return -1 < x < self.environment.grid_w and -1 < y < self.environment.grid_h
+        return 0 <= x < self.environment.grid_w and 0 <= y < self.environment.grid_h
 
     def is_valid(self, x, y):
-        return not self.environment.grid[y][x].obstacle and self.environment.grid[y][x].k is not None and self.environment.grid[y][x].repulsion_factor == 0
+        cell = self.environment.grid[y][x]
+        return not cell.obstacle and cell.k is not None and cell.repulsion_factor == 0
 
     def is_free_to_move(self, x, y):
-        return not self.environment.grid[y][x].obstacle and self.environment.grid[y][x].repulsion_factor == 0
+        cell = self.environment.grid[y][x]
+        return not cell.obstacle and cell.repulsion_factor == 0
 
     def is_never_visited(self, x, y):
-        return self.environment.grid[y][x] not in self.open and self.environment.grid[y][x] not in self.closed
+        return (x, y) not in self.open_set and (x, y) not in self.closed
 
     def get_offset_range(self, max_distance):
-        return [i for i in range(-1 * max_distance, max_distance + 1, 1)]
+        return range(-max_distance, max_distance + 1)
 
-    def find_all_neighbour_offsets(self, movement: str, max_distance: int):
+    def find_all_neighbour_offsets(self, movement, max_distance):
         if movement == 'queen':
-            moves = [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance)]
+            return [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance) if dx != 0 or dy != 0]
         elif movement == 'rook':
-            moves = [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance)]
-            for dx, dy in moves:
-                if dx != 0 and dy != 0:
-                    moves.remove([dx, dy])
+            return [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance) if dx == 0 or dy == 0]
         elif movement == 'bishop':
-            moves = [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance)]
-            for dx, dy in moves:
-                if dx != dy:
-                    moves.remove([dx, dy])
-        moves.remove([0, 0])
-        return moves
+            return [[dx, dy] for dx in self.get_offset_range(max_distance) for dy in self.get_offset_range(max_distance) if abs(dx) == abs(dy)]
+        return []
 
     def update_node_in_open_list(self, x, y, k):
-        for index, _ in enumerate(self.open):
-            if self.open[index].x == x and self.open[index].y == y:
-                self.open[index].k = k
+        for node in self.open:
+            if node[1].x == x and node[1].y == y:
+                node[1].k = k
+                heapq.heapify(self.open)
                 break
 
     def add_repulsion_penalty(self):
-        for y in range(self.environment.grid_h):
-            
-            for x in range(self.environment.grid_w):
-                self.environment.grid[y][x].k = self.environment.grid[y][x].k + (self.environment.grid[y][x].repulsion_factor * self.repulsion_penalty) if self.environment.grid[y][x].k is not None else self.environment.grid[y][x].k
+        for row in self.environment.grid:
+            for cell in row:
+                if cell.k is not None:
+                    cell.k += cell.repulsion_factor * self.repulsion_penalty
 
     def sort_based_on_weighted_distance_to_robot_and_heuristic(self, node, k_factor):
         return (k_factor * node.k) + ((1 - k_factor) * node.robot_distance)
@@ -88,7 +79,8 @@ class PathPlanner:
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
-                        self.open.append(self.environment.grid[index_y][index_x])
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_robot_and_heuristic(self.environment.grid[index_y][index_x], k_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
                     else:
                         new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
                         if new_k < self.environment.grid[index_y][index_x].k:
@@ -96,28 +88,26 @@ class PathPlanner:
                 else:
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.obstacle_penalty
-                        self.open.append(self.environment.grid[index_y][index_x])
-            else:
-                continue
-        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_robot_and_heuristic(node, k_factor))
-        top_node = self.open.pop(0)
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_robot_and_heuristic(self.environment.grid[index_y][index_x], k_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
+        top_node = heapq.heappop(self.open)[1]
+        self.open_set.remove((top_node.x, top_node.y))
         return top_node
 
     def calculate_all_cost_and_heuristics_from_end_to_robot(self, movement, k_factor):
         x, y = self.environment.end_x, self.environment.end_y
         self.environment.grid[y][x].k = 0
         self.environment.grid[y][x].b = None
-        self.open.append(self.environment.grid[y][x])
+        heapq.heappush(self.open, (0, self.environment.grid[y][x]))
+        self.open_set.add((x, y))
         while True:
-            # self.environment.plot_environment()
-            if any([graph_node.x == self.environment.robot_x and graph_node.y == self.environment.robot_y for graph_node in self.closed]):
+            if any((node.x == self.environment.robot_x and node.y == self.environment.robot_y) for _, node in self.open):
                 break
             else:
                 top_node = self.expand_all_neighbours_from_end_to_robot(x, y, movement, k_factor)
-                self.closed.append(top_node)
-                if len(self.open) > 0:
-                    x = self.open[0].x
-                    y = self.open[0].y
+                self.closed.add((top_node.x, top_node.y))
+                if self.open:
+                    x, y = self.open[0][1].x, self.open[0][1].y
         self.add_repulsion_penalty()
 
     def expand_all_neighbours_from_robot_to_end(self, x, y, movement, k_factor):
@@ -127,7 +117,8 @@ class PathPlanner:
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
-                        self.open.append(self.environment.grid[index_y][index_x])
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_end_and_heuristic(self.environment.grid[index_y][index_x], k_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
                     else:
                         new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
                         if new_k < self.environment.grid[index_y][index_x].k:
@@ -135,28 +126,26 @@ class PathPlanner:
                 else:
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.obstacle_penalty
-                        self.open.append(self.environment.grid[index_y][index_x])
-            else:
-                continue
-        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_end_and_heuristic(node, k_factor))
-        top_node = self.open.pop(0)
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_end_and_heuristic(self.environment.grid[index_y][index_x], k_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
+        top_node = heapq.heappop(self.open)[1]
+        self.open_set.remove((top_node.x, top_node.y))
         return top_node
 
     def calculate_all_cost_and_heuristics_from_robot_to_end(self, movement, k_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
         self.environment.grid[y][x].k = 0
         self.environment.grid[y][x].b = None
-        self.open.append(self.environment.grid[y][x])
+        heapq.heappush(self.open, (0, self.environment.grid[y][x]))
+        self.open_set.add((x, y))
         while True:
-            self.environment.plot_environment()
-            if any([graph_node.x == self.environment.end_x and graph_node.y == self.environment.end_y for graph_node in self.closed]):
+            if any((node.x == self.environment.end_x and node.y == self.environment.end_y) for _, node in self.open):
                 break
             else:
                 top_node = self.expand_all_neighbours_from_robot_to_end(x, y, movement, k_factor)
-                self.closed.append(top_node)
-                if len(self.open) > 0:
-                    x = self.open[0].x
-                    y = self.open[0].y
+                self.closed.add((top_node.x, top_node.y))
+                if self.open:
+                    x, y = self.open[0][1].x, self.open[0][1].y
         self.add_repulsion_penalty()
 
     def expand_non_obstacle_neighbours_from_end_to_robot(self, x, y, movement, k_factor):
@@ -166,31 +155,30 @@ class PathPlanner:
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
-                        self.open.append(self.environment.grid[index_y][index_x])
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_robot_and_heuristic(self.environment.grid[index_y][index_x], k_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
                     else:
                         new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
                         if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
-            else:
-                continue
-        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_robot_and_heuristic(node, k_factor))
-        top_node = self.open.pop(0)
+        top_node = heapq.heappop(self.open)[1]
+        self.open_set.remove((top_node.x, top_node.y))
         return top_node
 
     def calculate_non_obstacle_cost_and_heuristics_from_end_to_robot(self, movement, k_factor):
         x, y = self.environment.end_x, self.environment.end_y
         self.environment.grid[y][x].k = 0
         self.environment.grid[y][x].b = None
-        self.open.append(self.environment.grid[y][x])
+        heapq.heappush(self.open, (0, self.environment.grid[y][x]))
+        self.open_set.add((x, y))
         while True:
-            if any([graph_node.x == self.environment.robot_x and graph_node.y == self.environment.robot_y for graph_node in self.closed]):
+            if any((node.x == self.environment.robot_x and node.y == self.environment.robot_y) for _, node in self.open):
                 break
             else:
                 top_node = self.expand_non_obstacle_neighbours_from_end_to_robot(x, y, movement, k_factor)
-                self.closed.append(top_node)
-                if len(self.open) > 0:
-                    x = self.open[0].x
-                    y = self.open[0].y
+                self.closed.add((top_node.x, top_node.y))
+                if self.open:
+                    x, y = self.open[0][1].x, self.open[0][1].y
         self.add_repulsion_penalty()
 
     def expand_non_obstacle_neighbours_from_robot_to_end(self, x, y, movement, k_factor):
@@ -200,31 +188,30 @@ class PathPlanner:
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
-                        self.open.append(self.environment.grid[index_y][index_x])
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_end_and_heuristic(self.environment.grid[index_y][index_x], k_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
                     else:
                         new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
                         if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
-            else:
-                continue
-        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_end_and_heuristic(node, k_factor))
-        top_node = self.open.pop(0)
+        top_node = heapq.heappop(self.open)[1]
+        self.open_set.remove((top_node.x, top_node.y))
         return top_node
 
     def calculate_non_obstacle_cost_and_heuristics_from_robot_to_end(self, movement, k_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
         self.environment.grid[y][x].k = 0
         self.environment.grid[y][x].b = None
-        self.open.append(self.environment.grid[y][x])
+        heapq.heappush(self.open, (0, self.environment.grid[y][x]))
+        self.open_set.add((x, y))
         while True:
-            if any([graph_node.x == self.environment.end_x and graph_node.y == self.environment.end_y for graph_node in self.closed]):
+            if any((node.x == self.environment.end_x and node.y == self.environment.end_y) for _, node in self.open):
                 break
             else:
                 top_node = self.expand_non_obstacle_neighbours_from_robot_to_end(x, y, movement, k_factor)
-                self.closed.append(top_node)
-                if len(self.open) > 0:
-                    x = self.open[0].x
-                    y = self.open[0].y
+                self.closed.add((top_node.x, top_node.y))
+                if self.open:
+                    x, y = self.open[0][1].x, self.open[0][1].y
         self.add_repulsion_penalty()
 
     def expand_neighbours_from_end_to_robot(self, x, y, movement, k_factor, o_factor):
@@ -234,32 +221,30 @@ class PathPlanner:
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
-                        self.open.append(self.environment.grid[index_y][index_x])
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(self.environment.grid[index_y][index_x], k_factor, o_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
                     else:
                         new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
                         if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
-            else:
-                continue
-        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(node, k_factor, o_factor))
-        top_node = self.open.pop(0)
+        top_node = heapq.heappop(self.open)[1]
+        self.open_set.remove((top_node.x, top_node.y))
         return top_node
 
     def calculate_cost_and_heuristics_from_end_to_robot(self, movement, k_factor, o_factor):
         x, y = self.environment.end_x, self.environment.end_y
         self.environment.grid[y][x].k = 0
         self.environment.grid[y][x].b = None
-        self.open.append(self.environment.grid[y][x])
+        heapq.heappush(self.open, (0, self.environment.grid[y][x]))
+        self.open_set.add((x, y))
         while True:
-            # self.environment.plot_environment_on_grid()
-            if any([graph_node.x == self.environment.robot_x and graph_node.y == self.environment.robot_y for graph_node in self.closed]):
+            if any((node.x == self.environment.robot_x and node.y == self.environment.robot_y) for _, node in self.open):
                 break
             else:
                 top_node = self.expand_neighbours_from_end_to_robot(x, y, movement, k_factor, o_factor)
-                self.closed.append(top_node)
-                if len(self.open) > 0:
-                    x = self.open[0].x
-                    y = self.open[0].y
+                self.closed.add((top_node.x, top_node.y))
+                if self.open:
+                    x, y = self.open[0][1].x, self.open[0][1].y
         self.add_repulsion_penalty()
 
     def expand_neighbours_from_robot_to_end(self, x, y, movement, k_factor, o_factor):
@@ -269,31 +254,30 @@ class PathPlanner:
                 if self.is_free_to_move(index_x, index_y):
                     if self.is_never_visited(index_x, index_y):
                         self.environment.grid[index_y][index_x].k = self.environment.grid[y][x].k + self.euclidian_distance(x, y, index_x, index_y)
-                        self.open.append(self.environment.grid[index_y][index_x])
+                        heapq.heappush(self.open, (self.sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(self.environment.grid[index_y][index_x], k_factor, o_factor), self.environment.grid[index_y][index_x]))
+                        self.open_set.add((index_x, index_y))
                     else:
                         new_k = self.environment.grid[y][x].k + self.euclidian_distance(0, 0, dx, dy)
                         if new_k < self.environment.grid[index_y][index_x].k:
                             self.update_node_in_open_list(index_x, index_y, new_k)
-            else:
-                continue
-        self.open = sorted(self.open, key=lambda node: self.sort_based_on_weighted_distance_to_robot_and_heuristic_and_obstacle(node, k_factor, o_factor))
-        top_node = self.open.pop(0)
+        top_node = heapq.heappop(self.open)[1]
+        self.open_set.remove((top_node.x, top_node.y))
         return top_node
 
     def calculate_cost_and_heuristics_from_robot_to_end(self, movement, k_factor, o_factor):
         x, y = self.environment.robot_x, self.environment.robot_y
         self.environment.grid[y][x].k = 0
         self.environment.grid[y][x].b = None
-        self.open.append(self.environment.grid[y][x])
+        heapq.heappush(self.open, (0, self.environment.grid[y][x]))
+        self.open_set.add((x, y))
         while True:
-            if any([graph_node.x == self.environment.end_x and graph_node.y == self.environment.end_y for graph_node in self.closed]):
+            if any((node.x == self.environment.end_x and node.y == self.environment.end_y) for _, node in self.open):
                 break
             else:
                 top_node = self.expand_neighbours_from_robot_to_end(x, y, movement, k_factor, o_factor)
-                self.closed.append(top_node)
-                if len(self.open) > 0:
-                    x = self.open[0].x
-                    y = self.open[0].y
+                self.closed.add((top_node.x, top_node.y))
+                if self.open:
+                    x, y = self.open[0][1].x, self.open[0][1].y
         self.add_repulsion_penalty()
 
     def raw_path_finder_from_robot_to_end(self, movement):
@@ -305,7 +289,7 @@ class PathPlanner:
             if x == self.environment.end_x and y == self.environment.end_y:
                 break
             neighbours = [[x + dx, y + dy] for dx, dy in self.find_all_neighbour_offsets(movement, 1) if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and [x + dx, y + dy] not in path]
-            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]].k)
+            neighbours.sort(key=lambda a: self.environment.grid[a[1]][a[0]].k)
             dx, dy = neighbours[0][0] - x, neighbours[0][1] - y
             orientations.append([dx, dy])
             x, y = neighbours[0]
@@ -317,10 +301,10 @@ class PathPlanner:
         x, y = self.environment.end_x, self.environment.end_y
         while True:
             path.append([x, y])
-            if x == self.environment.robot_x and y == self.environment.robot_Y:
+            if x == self.environment.robot_x and y == self.environment.robot_y:
                 break
             neighbours = [[x + dx, y + dy] for dx, dy in self.find_all_neighbour_offsets(movement, 1) if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and [x + dx, y + dy] not in path]
-            neighbours = sorted(neighbours, key=lambda a: self.environment.grid[a[1]][a[0]].k)
+            neighbours.sort(key=lambda a: self.environment.grid[a[1]][a[0]].k)
             dx, dy = neighbours[0][0] - x, neighbours[0][1] - y
             orientations.append([dx, dy])
             x, y = neighbours[0]
