@@ -284,15 +284,22 @@ class PathPlanner:
         path = []
         orientations = []
         x, y = self.environment.robot_x, self.environment.robot_y
+        error_flag = 0
         while True:
             path.append([x, y])
             if x == self.environment.end_x and y == self.environment.end_y:
                 break
             neighbours = [[x + dx, y + dy] for dx, dy in self.find_all_neighbour_offsets(movement, 1) if self.is_inside_grid(x + dx, y + dy) and self.is_valid(x + dx, y + dy) and [x + dx, y + dy] not in path]
             neighbours.sort(key=lambda a: self.environment.grid[a[1]][a[0]].k)
-            dx, dy = neighbours[0][0] - x, neighbours[0][1] - y
-            orientations.append([dx, dy])
-            x, y = neighbours[0]
+            if len(neighbours)>0:
+                dx, dy = neighbours[0][0] - x, neighbours[0][1] - y
+                orientations.append([dx, dy])
+                x, y = neighbours[0]
+            else:
+                error_flag = 1
+                break
+        if error_flag:
+            return [],[]
         return path, orientations
 
     def raw_path_finder_from_end_to_robot(self, movement):

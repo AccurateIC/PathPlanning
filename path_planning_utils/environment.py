@@ -25,7 +25,8 @@ class Environment:
         self.obstacles_path = {}       
         self.collisions = {}
         self.grid = self.create_grid()
-
+        self.global_path = []
+        self.global_orientation= []
     def is_inside_grid(self, x, y):
         """
         Checks if a point is inside the grid.
