@@ -156,9 +156,9 @@ class RobotPathPlanner:
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
         ROBOT_Y, ROBOT_X = ROBOT_Y.tolist()[0], ROBOT_X.tolist()[0]
         
-        try:
-            END_X, END_Y = np.where(self.array == self.end_value)
-            END_Y, END_X = END_X.tolist()[0], END_Y.tolist()[0]
+        # try:
+        END_X, END_Y = np.where(self.array == self.end_value)
+        END_Y, END_X = END_X.tolist()[0], END_Y.tolist()[0]
             # name=time.time()
             # name =str(name)
         # name+=".npy"
@@ -167,13 +167,15 @@ class RobotPathPlanner:
         # print("Saving ",name)
         # print(END_X)
         # print("@"*100)
-        except IndexError:
-            name=time.time()
-            name =str(name)
-            name+=".npy"
-            # 
-            np.save(name,self.array)
-            print("Saving ",name)
+        # except IndexError as E:
+        #     print(E)
+        #     pass
+            # name=time.time()
+            # name =str(name)
+            # name+=".npy"
+            # # 
+            # np.save(name,self.array)
+            # print("Saving ",name)
 
         OBSTACLES_Y, OBSTACLES_X = np.where(self.array == self.obstacle_value)
         OBSTACLES_Y, OBSTACLES_X = OBSTACLES_Y.tolist(), OBSTACLES_X.tolist()
@@ -212,7 +214,7 @@ class RobotPathPlanner:
             REPULSION_X=REPULSION_X, REPULSION_Y=REPULSION_Y, REPULSION_VALUES=REPULSION_VALUES
         )
 
-    def run(self,prev_path):
+    def run(self,):
         """
         Executes the path planning algorithm and plots the robot's movement through each timestep.
         
@@ -223,7 +225,7 @@ class RobotPathPlanner:
         
         path, orientation = self.planner.raw_path_finder_from_robot_to_end(self.params.MOVEMENT)
         if len(path) ==0 or len(orientation)==0:
-            return prev_path
+            return []
         
         all_repulsions = self.env.all_repulsions
         repulsions_x, repulsions_y = all_repulsions["x_repulsions"], all_repulsions["y_repulsions"]
