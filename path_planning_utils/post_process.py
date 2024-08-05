@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 from rdp import rdp
 
-class PathPlanner:
+class PostPlanner:
     def __init__(self, path_points, repulsions_x, repulsions_y, epsilon=1.0, spline_smoothness=5, spline_degree=2, max_distance=5):
         self.path_points = np.array(path_points)
         self.repulsions_x = np.array(repulsions_x)
@@ -22,12 +22,12 @@ class PathPlanner:
         return self.path_points[closest_index]
 
     def simplify_path(self):
-        if len(self.path_points) < 6:
+        if (len(self.path_points) < 6):
             return self.path_points
         
-        start_points = self.path_points[:3]
-        end_points = self.path_points[-3:]
-        middle_points = self.path_points[3:-3]
+        start_points = self.path_points[:4]
+        end_points = self.path_points[-4:]
+        middle_points = self.path_points[4:-4]
 
         reduced_middle = rdp(middle_points, epsilon=self.epsilon) if len(middle_points) > 2 else middle_points
         combined_path = np.vstack((start_points, reduced_middle, end_points))
@@ -37,7 +37,7 @@ class PathPlanner:
             start = combined_path[i-1]
             end = combined_path[i]
 
-            while np.linalg.norm(start - end) > self.max_distance:
+            while (np.linalg.norm(start - end) > self.max_distance):
                 midpoint = (start + end) / 2
                 closest_point = self.find_closest_point(midpoint)
                 refined_path.append(closest_point)
@@ -46,6 +46,20 @@ class PathPlanner:
             refined_path.append(end)
 
         return np.array(refined_path)
+
+    def check_turn_angles(self, path_points):
+        # Ensure that the turn angles do not exceed 45 degrees
+        def angle_between_vectors(v1, v2):
+            angle = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+            return np.degrees(angle)
+
+        for i in range(1, len(path_points) - 1):
+            v1 = path_points[i] - path_points[i - 1]
+            v2 = path_points[i + 1] - path_points[i]
+            angle = angle_between_vectors(v1, v2)
+            if angle > 45:
+                return False
+        return True
 
     def get_b_spline(self, degree, num_points=500):
         x = self.reduced_path_points[:, 0]
@@ -78,7 +92,6 @@ class PathPlanner:
         x_fine, y_fine = self.get_b_spline(self.spline_degree)
 
         if x_fine is not None and y_fine is not None:
-            # min_distance, _ = self.closest_distance_to_repulsion(x_fine, y_fine)
             min_distance = 0
             return x_fine, y_fine, min_distance
 
@@ -86,7 +99,6 @@ class PathPlanner:
 
     def plot(self):
         x_fine, y_fine, min_distance = self.infer_spline()
-       
         
         if x_fine is not None and y_fine is not None:
             fig, ax = plt.subplots(figsize=(10, 6))
@@ -122,8 +134,8 @@ class PathPlanner:
             ax.legend(fontsize=12)
             ax.set_xlabel('X', fontsize=14)
             ax.set_ylabel('Y', fontsize=14)
-            ax.set_xticks(range(0, 250, 10))
-            ax.set_yticks(range(0, 250, 10))
+            ax.set_xticks(range(0, 100, 1))
+            ax.set_yticks(range(0, 100, 1))
             ax.invert_yaxis()
             ax.grid(True, linestyle='--', alpha=0.6)
             ax.tick_params(axis='both', which='major', labelsize=12)

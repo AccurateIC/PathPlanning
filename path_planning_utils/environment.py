@@ -175,10 +175,12 @@ class Environment:
             obstacles_dx (list): List of X directions for the obstacles.
             obstacles_dy (list): List of Y directions for the obstacles.
         """
-        
+        self.all_repulsions['x_repulsions'].extend(obstacles_x)
+        self.all_repulsions['y_repulsions'].extend(obstacles_y)
         for obstacle_x, obstacle_y, obstacle_dx, obstacle_dy in zip(obstacles_x, obstacles_y, obstacles_dx, obstacles_dy):
             self.put_obstacle_in_memory(obstacle_x, obstacle_y, obstacle_dx, obstacle_dy)
-
+            print(obstacle_x)
+      
     def plot_environment_in_memory(self, pause_time=1):
         """
         Plots the environment from memory, including the robot, end point, obstacles, and paths.
