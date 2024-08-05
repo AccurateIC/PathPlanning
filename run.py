@@ -9,6 +9,7 @@ import pstats
 import io
 import os
 import time
+import datetime
 @dataclass
 class PathParameters:
     """
@@ -151,6 +152,9 @@ class RobotPathPlanner:
         # if self.gps_call:
         # print("boat position",self.boat_x, self.boat_y, self.boat_z)
         self.array = np.array(self.array).reshape((length, length))
+        # name="/home/tejal/ISACA/src/npy_files/"+str(datetime.datetime.now())
+        # np.save(name,self.array )
+
         GRID_H, GRID_W = self.array.shape
         
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
