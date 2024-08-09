@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
-from path_planning_utils import environment, bstar
-from path_planning_utils.post_process import PathPlanner
+from singaboat_vrx.custom_plan1.path_planning_utils import environment, bstar
+from singaboat_vrx.custom_plan1.path_planning_utils.post_process import PostPlanner
 import cProfile
 import pstats
 import io
+import math
 import os
+import time
 
 @dataclass
 class PathParameters:
@@ -145,8 +147,15 @@ class RobotPathPlanner:
         Returns:
             PathParameters: A dataclass containing the extracted parameters.
         """
-        GRID_H, GRID_W = self.array.shape
-        
+        try:
+            length=int(math.sqrt(len(self.array)))
+            self.array = np.array(self.array).reshape((length, length))
+            GRID_H, GRID_W = self.array.shape
+        except :
+            print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
+            print("Type is ",type(self.array), "\t shape : ",self.array.shape)
+            print("unique: \t",np.unique(self.array))
+            print("_"*50)
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
         ROBOT_Y, ROBOT_X = ROBOT_Y.tolist()[0], ROBOT_X.tolist()[0]
         
@@ -193,49 +202,85 @@ class RobotPathPlanner:
     def run(self):
         """
         Executes the path planning algorithm and plots the robot's movement through each timestep.
-        
+
         Returns:
-            list: Smoothed path for the robot as a list of [x, y] coordinates.
+            list: Smoothed path for the robot as a list of [x, y] coordinates or a straight linear path if no obstacles/repulsions are present.
         """
-        self.planner.calculate_all_cost_and_heuristics_from_end_to_robot(self.params.MOVEMENT, self.params.K_FACTOR)
+        # Check if there are no obstacles and no repulsion points
+        if len(self.params.OBSTACLES_X) == 0 and len(self.params.REPULSION_X) == 0:
+            # Generate a straight linear path with 500 coordinates
+            x_coords = np.linspace(self.params.ROBOT_X, self.params.END_X, 500)
+            y_coords = np.linspace(self.params.ROBOT_Y, self.params.END_Y, 500)
+            path = [[x, y] for x, y in zip(x_coords, y_coords)]
+            repulsions_x , repulsions_y = [],[]
         
-        path, orientation = self.planner.raw_path_finder_from_robot_to_end(self.params.MOVEMENT)
-        
-        self.env.robot_path, self.env.robot_orientation = path, orientation
-        all_repulsions = self.env.all_repulsions
-        repulsions_x, repulsions_y = all_repulsions["x_repulsions"], all_repulsions["y_repulsions"]
-
+         
+        else:
+            # Otherwise, execute the regular path planning algorithm
+            self.planner.calculate_all_cost_and_heuristics_from_end_to_robot(self.params.MOVEMENT, self.params.K_FACTOR)
+            path, orientation = self.planner.raw_path_finder_from_robot_to_end(self.params.MOVEMENT)
+            # self.planner.plot_multiple_shortest_paths(num_paths=3, movement='queen')
+            self.env.robot_path, self.env.robot_orientation = path, orientation
+            all_repulsions = self.env.all_repulsions
+            repulsions_x, repulsions_y = all_repulsions["x_repulsions"], all_repulsions["y_repulsions"]
         path_points = np.asarray(path)
-
-        post_planner = PathPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
+        post_planner = PostPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
+        
         x_path, y_path, _ = post_planner.infer_spline()
-        # post_planner.plot()
-        return [[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)]
-    
+        
+        
+     
+        # post_planner.plot(save=True,save_path=np_name)
+        points_list_with_1 = np.array([[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)])
+        points_list_with_1[:, 0] -= 5
+        points_list_with_1[:, 1] -= 50
+        return points_list_with_1,self.array
+
 def main():
     """
     Main function to load the environment array, initialize the planner, run the planning algorithm,
     and visualize the results.
     """
-    file_path = 'bhavya 23.npy'
+    # file_path = 'kaiwalya.npy'
+    folder_path = 'npy_files_og/npy_files'
     
-    array = np.load(file_path)
-    array = np.rot90(array)
-    array = np.fliplr(array)
+ 
+    def process_npy_file(file_path):
+
+        # Load the .npy file
+
+        data = np.load(file_path)
+
+        print(f"Processing {file_path}: shape = {data.shape}")
+        
+        array = np.load(file_path)
+        array[array == 500] =10
+        array = np.rot90(array)
+        array = np.fliplr(array)
+        
+        plt.imshow(array, cmap='viridis')
+        plt.show()
+        planner = RobotPathPlanner(array)
+        path = planner.run()
     
-    # plt.imshow(array, cmap='viridis')
-    # plt.show()
+    
+    for filename in os.listdir(folder_path):
 
-    planner = RobotPathPlanner(array)
-    profiler = cProfile.Profile()
-    profiler.enable()
-    path = planner.run()
-    profiler.disable()
-    profile_filename = 'profile_results.prof'
-    profiler.dump_stats(profile_filename)
-    print(path)
+        if filename.endswith('.npy'):
+           
+            file_path = os.path.join(folder_path, filename)
+            print("file_path:",file_path)
+            process_npy_file(file_path)
+          
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+    # path = planner.run()
+    # profiler.disable()
+    # profile_filename = 'profile_results.prof'
+    # profiler.dump_stats(profile_filename)
+    # print(path)
 
-    os.system(f'snakeviz {profile_filename}')
+    # os.system(f'snakeviz {profile_filename}')
 
 if __name__ == '__main__':
     main()

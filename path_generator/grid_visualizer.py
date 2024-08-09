@@ -115,7 +115,7 @@ class GridVisualizer:
 
 def main():
     mode = input("Enter mode (new/edit): ").strip().lower()
-    filename = 'custom_trace_grid_7.npy'
+    filename = 'verticle_obstacle.npy'
     grid_size = 100
 
     if mode == 'edit' and os.path.exists(filename):
