@@ -148,17 +148,15 @@ class RobotPathPlanner:
             PathParameters: A dataclass containing the extracted parameters.
         """
        
-        # try:
-        # print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
-        print("Type is ",type(self.array), "\t shape : ",self.array.shape)
-        print("unique: \t",np.unique(self.array))
-        print("_"*50)
-        length=100
-        print("length",length)
+        try:
+            length=int(math.sqrt(len(self.array)))
+            self.array = np.array(self.array).reshape((length, length))
+        except :
+            print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
+            print("Type is ",type(self.array), "\t shape : ",self.array.shape)
+            print("unique: \t",np.unique(self.array))
+            print("_"*50)
         self.array = np.array(self.array).reshape((length, length))
-        GRID_H, GRID_W = self.array.shape
-        # except :
-
         GRID_H, GRID_W = self.array.shape
         
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
