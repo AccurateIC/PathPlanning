@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 from rdp import rdp
 
-class PathPlanner:
+class PostPlanner:
     def __init__(self, path_points, repulsions_x, repulsions_y, epsilon=1.0, spline_smoothness=5, spline_degree=2, max_distance=5):
         self.path_points = np.array(path_points)
         self.repulsions_x = np.array(repulsions_x)
@@ -122,8 +122,8 @@ class PathPlanner:
             ax.legend(fontsize=12)
             ax.set_xlabel('X', fontsize=14)
             ax.set_ylabel('Y', fontsize=14)
-            ax.set_xticks(range(0, 250, 10))
-            ax.set_yticks(range(0, 250, 10))
+            ax.set_xticks(range(0, 100, 10))
+            ax.set_yticks(range(0, 100, 10))
             ax.invert_yaxis()
             ax.grid(True, linestyle='--', alpha=0.6)
             ax.tick_params(axis='both', which='major', labelsize=12)
