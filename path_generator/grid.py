@@ -12,8 +12,7 @@ class Grid:
     def __init__(self, size):
         self.size = size
         self.grid = np.zeros((size, size), dtype=int)
-        self.grid[size][size/2] = 1
-        self.grid[size][0] = 2
+        
         self.current_element = ROBOT_START
 
     def update_grid(self, x, y):
@@ -30,11 +29,17 @@ class Grid:
             self.grid[y, x] = REPULSION
         elif self.current_element == TRACE:
             self.grid[y, x] = TRACE
-        elif self.current_element == TRACE:
-            self.grid[y, x] = TRACE
 
     def change_current_element(self, element):
         self.current_element = element
+
+    def delete_element(self, x, y):
+        """
+        Delete the element at the specified (x, y) coordinate by setting it to 0.
+        """
+        y = self.size - 1 - y  # Invert the y coordinate
+        self.grid[y, x] = EMPTY
+        print(f'Element at ({x}, {y}) deleted.')
 
     def save_grid(self, filename):
         np.save(filename, self.grid)

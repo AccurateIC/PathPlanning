@@ -163,3 +163,5 @@ cython_debug/
 test_*.py
 *.json
 __pycache__/
+*Identifier
+test*

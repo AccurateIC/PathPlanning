@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
-from path_planning_utils import environment, bstar
-from path_planning_utils.post_process import PostPlanner
+from singaboat_vrx.custom_plan1.path_planning_utils import environment, bstar
+from singaboat_vrx.custom_plan1.path_planning_utils.post_process import PostPlanner
 import cProfile
 import pstats
 import io
+import math
 import os
+import time
 
 @dataclass
 class PathParameters:
@@ -145,8 +147,15 @@ class RobotPathPlanner:
         Returns:
             PathParameters: A dataclass containing the extracted parameters.
         """
-        GRID_H, GRID_W = self.array.shape
-        
+        try:
+            length=int(math.sqrt(len(self.array)))
+            self.array = np.array(self.array).reshape((length, length))
+            GRID_H, GRID_W = self.array.shape
+        except :
+            print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
+            print("Type is ",type(self.array), "\t shape : ",self.array.shape)
+            print("unique: \t",np.unique(self.array))
+            print("_"*50)
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
         ROBOT_Y, ROBOT_X = ROBOT_Y.tolist()[0], ROBOT_X.tolist()[0]
         
@@ -216,10 +225,16 @@ class RobotPathPlanner:
             repulsions_x, repulsions_y = all_repulsions["x_repulsions"], all_repulsions["y_repulsions"]
         path_points = np.asarray(path)
         post_planner = PostPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
+        
         x_path, y_path, _ = post_planner.infer_spline()
-        post_planner.plot()
-        return [[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)]
-
+        
+        
+     
+        # post_planner.plot(save=True,save_path=np_name)
+        points_list_with_1 = np.array([[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)])
+        points_list_with_1[:, 0] -= 5
+        points_list_with_1[:, 1] -= 50
+        return points_list_with_1,self.array
 
 def main():
     """
@@ -242,7 +257,7 @@ def main():
         array[array == 500] =10
         array = np.rot90(array)
         array = np.fliplr(array)
-        print("unique: \t",np.unique(array))
+        
         plt.imshow(array, cmap='viridis')
         plt.show()
         planner = RobotPathPlanner(array)
