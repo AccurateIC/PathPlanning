@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from dataclasses import dataclass, field
-from singaboat_vrx.custom_plan1.path_planning_utils import environment,bstar
+from dataclasses import dataclass
+from path_planning_utils import environment,bstar
 import math
 from singaboat_vrx.custom_plan1.path_planning_utils.post_process import PostPlanner
 import cProfile
@@ -148,15 +148,15 @@ class RobotPathPlanner:
             PathParameters: A dataclass containing the extracted parameters.
         """
        
-        try:
-            length=int(math.sqrt(len(self.array)))
-            self.array = np.array(self.array).reshape((length, length))
-        except :
-            print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
-            print("Type is ",type(self.array), "\t shape : ",self.array.shape)
-            print("unique: \t",np.unique(self.array))
-            print("_"*50)
-        self.array = np.array(self.array).reshape((length, length))
+        # try:
+        #     length=int(math.sqrt(len(self.array)))
+        #     self.array = np.array(self.array).reshape((length, length))
+        # except :
+        #     print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
+        #     print("Type is ",type(self.array), "\t shape : ",self.array.shape)
+        #     print("unique: \t",np.unique(self.array))
+        #     print("_"*50)
+       
         GRID_H, GRID_W = self.array.shape
         
         ROBOT_Y, ROBOT_X = np.where(self.array == self.robot_value)
@@ -189,7 +189,7 @@ class RobotPathPlanner:
         REPULSION_X, REPULSION_Y, REPULSION_VALUES = [], [], []
         for y in range(self.array.shape[0]):
             for x in range(self.array.shape[1]):
-                if self.array[y, x] == 5:
+                if self.array[y, x] == 140:
                     REPULSION_X.append(x)
                     REPULSION_Y.append(y)
                     REPULSION_VALUES.append(self.array[y, x])
@@ -242,42 +242,55 @@ class RobotPathPlanner:
         # return [[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)]
         return points_list_with_1
     
-def main():
+def main(file_path=None):
     """
-    Main function to load the environment array, initialize the planner, run the planning algorithm,
+    Main function to load a specific .npy file, initialize the planner, run the planning algorithm,
     and visualize the results.
+
+    Args:
+        file_path (str): The path to the .npy file.
     """
-  
-    
-    folder_path = 'npy_files_og/npy_files'
 
-    
     def process_npy_file(file_path):
-
         # Load the .npy file
-
         data = np.load(file_path)
 
         print(f"Processing {file_path}: shape = {data.shape}")
 
         array = np.load(file_path)
-        # array[array == 500] =10
-        array = np.rot90(array)
-        array = np.fliplr(array)
        
         planner = RobotPathPlanner(array)
         path = planner.run()
 
+    # Process the provided file
+    if os.path.exists(file_path) and file_path.endswith('.npy'):
+        print("file_path:", file_path)
+        process_npy_file(file_path)
+    else:
+        print(f"Error: {file_path} does not exist or is not a valid .npy file.")
+
+def profile_code(function, *args, **kwargs):
+    # Create a profiler
+    pr = cProfile.Profile()
+    pr.enable()
     
+    # Run the function you want to profile
+    function(*args, **kwargs)
+    
+    # Stop the profiler
+    pr.disable()
+    
+    # Save the profiling data to a file
+    profile_file = 'profile_data.prof'
+    pr.dump_stats(profile_file)
+    
+    print(f"Profiling data saved to {profile_file}")
 
-    for filename in os.listdir(folder_path):
 
-        if filename.endswith('.npy'):
 
-            file_path = os.path.join(folder_path, filename)
-            print("file_path:",file_path)
-            process_npy_file(file_path)
-
-   
 if __name__ == '__main__':
-    main()
+    # Specify the file path directly here
+    file_path = 'custom_grid_250.npy'
+    
+    # Run the main function with the provided file path
+    profile_code(main, file_path)

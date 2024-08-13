@@ -50,11 +50,19 @@ class PostPlanner:
     def get_b_spline(self, degree, num_points=500):
         x = self.reduced_path_points[:, 0]
         y = self.reduced_path_points[:, 1]
-
+    
         if len(x) >= 4:
-            tck, _ = splprep([x, y], s=self.spline_smoothness, k=degree)
+            # Force the spline to pass through the first and last points
+            tck, _ = splprep([x, y], s=self.spline_smoothness, k=degree, t=[0] + list(np.linspace(0, 1, len(x)-2)) + [1])
+            
             u_fine = np.linspace(0, 1, num_points)
-            return splev(u_fine, tck)
+            x_fine, y_fine = splev(u_fine, tck)
+            
+            # Ensure first and last points are exactly the start and end points
+            x_fine[0], y_fine[0] = x[0], y[0]
+            x_fine[-1], y_fine[-1] = x[-1], y[-1]
+            
+            return x_fine, y_fine
         return (None, None)
 
     def closest_distance_to_repulsion(self, x_fine, y_fine):
@@ -73,16 +81,60 @@ class PostPlanner:
         self.closest_spline_point = closest_spline_point
         self.closest_repulsion_point = closest_repulsion_point
         return min_distance, closest_spline_point
+    
+    def calculate_max_curvature(self, x_fine, y_fine):
+        # Calculate first derivatives
+        tck, _ = splprep([x_fine, y_fine], s=0, k=self.spline_degree)
+        u_fine = np.linspace(0, 1, len(x_fine))
+
+        x_prime, y_prime = splev(u_fine, tck, der=1)  # First derivatives
+        x_double_prime, y_double_prime = splev(u_fine, tck, der=2)  # Second derivatives
+
+        # Calculate curvature at each point
+        curvature = np.abs(x_prime * y_double_prime - y_prime * x_double_prime) / (x_prime**2 + y_prime**2)**1.5
+
+        # Return maximum curvature
+        max_curvature = np.max(curvature)
+        return max_curvature
+
+    
 
     def infer_spline(self):
-        x_fine, y_fine = self.get_b_spline(self.spline_degree)
+        max_curvature = float('inf')
+        smoothness_increment = 1.0  # You can adjust this increment as needed
+        max_attempts = 10  # Maximum number of attempts to reduce curvature
+        attempts = 0  # Initialize the attempt counter
 
-        if x_fine is not None and y_fine is not None:
-            # min_distance, _ = self.closest_distance_to_repulsion(x_fine, y_fine)
-            min_distance = 0
-            return x_fine, y_fine, min_distance
+        best_x_fine, best_y_fine = None, None
 
-        return None, None, None
+        while max_curvature > 15 and attempts < max_attempts:
+            x_fine, y_fine = self.get_b_spline(self.spline_degree)
+
+            if x_fine is None or y_fine is None:
+                print("Could not generate a valid B-spline.")
+                return None, None, None  # In case the spline cannot be generated
+
+            # Calculate the maximum curvature of the current spline
+            max_curvature = self.calculate_max_curvature(x_fine, y_fine)
+            print(f"Attempt {attempts + 1}: Smoothness: {self.spline_smoothness}, Max Curvature: {max_curvature}")
+
+            # If the curvature is too high, increase the smoothness and try again
+            if max_curvature > 15:
+                self.spline_smoothness += smoothness_increment
+                best_x_fine, best_y_fine = x_fine, y_fine  # Save the best attempt so far
+
+            attempts += 1
+
+        # If no spline with curvature <= 15 was found, return the smoothest one found in the attempts
+        if max_curvature > 15:
+            print(f"Max curvature is still greater than 15 after {max_attempts} attempts. Returning the smoothest spline found.")
+            return best_x_fine, best_y_fine, 0
+
+        # Return the spline with acceptable curvature
+        min_distance = 0
+        return x_fine, y_fine, min_distance
+
+
 
     def plot(self):
         x_fine, y_fine, min_distance = self.infer_spline()
