@@ -238,6 +238,10 @@ class RobotPathPlanner:
 
         post_planner = PathPlanner(path_points, repulsions_x, repulsions_y, epsilon=1.0)
         x_path, y_path, _ = post_planner.infer_spline()
+        print(">>>>>>>>>>>run.py",len(x_path),len(y_path))
+        # if x_path==None and y_path==None:
+        #     return []
+
         self.path=[[x_cords, y_cords] for x_cords, y_cords in zip (x_path, y_path)]
         points_list_with_1 = np.array([point + [1] for point in self.path])
     
