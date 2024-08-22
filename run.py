@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-from path_planning_utils import environment,bstar
+from singaboat_vrx.custom_plan1.path_planning_utils import environment,bstar
 import math
 from singaboat_vrx.custom_plan1.path_planning_utils.post_process import PostPlanner
 import cProfile
