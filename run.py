@@ -239,7 +239,7 @@ class RobotPathPlanner:
         points_list_with_1[:, 0] -= 5
         points_list_with_1[:, 1] -= 50
         
-        post_planner.plot()
+        # post_planner.plot()
         # return [[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)]
         return points_list_with_1
     
