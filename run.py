@@ -10,6 +10,7 @@ import io
 import os
 import time
 import datetime
+
 @dataclass
 class PathParameters:
     """
@@ -148,14 +149,14 @@ class RobotPathPlanner:
             PathParameters: A dataclass containing the extracted parameters.
         """
        
-        # try:
-        #     length=int(math.sqrt(len(self.array)))
-        #     self.array = np.array(self.array).reshape((length, length))
-        # except :
-        #     print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
-        #     print("Type is ",type(self.array), "\t shape : ",self.array.shape)
-        #     print("unique: \t",np.unique(self.array))
-        #     print("_"*50)
+        try:
+            length=int(math.sqrt(len(self.array)))
+            self.array = np.array(self.array).reshape((length, length))
+        except :
+            print("!!!!!!! \t ERROR OCCURD WHILE READING OCCUPANCY GRID \t !!!!!!!")
+            print("Type is ",type(self.array), "\t shape : ",self.array.shape)
+            print("unique: \t",np.unique(self.array))
+            print("_"*50)
        
         GRID_H, GRID_W = self.array.shape
         
@@ -189,7 +190,7 @@ class RobotPathPlanner:
         REPULSION_X, REPULSION_Y, REPULSION_VALUES = [], [], []
         for y in range(self.array.shape[0]):
             for x in range(self.array.shape[1]):
-                if self.array[y, x] == 140:
+                if self.array[y, x] == 5:
                     REPULSION_X.append(x)
                     REPULSION_Y.append(y)
                     REPULSION_VALUES.append(self.array[y, x])
@@ -238,7 +239,7 @@ class RobotPathPlanner:
         points_list_with_1[:, 0] -= 5
         points_list_with_1[:, 1] -= 50
         
-        # post_planner.plot()
+        post_planner.plot()
         # return [[x_cords, y_cords] for x_cords, y_cords in zip(x_path, y_path)]
         return points_list_with_1
     
@@ -290,7 +291,7 @@ def profile_code(function, *args, **kwargs):
 
 if __name__ == '__main__':
     # Specify the file path directly here
-    file_path = 'custom_grid_250.npy'
+    file_path = 'bhavya 23.npy'
     
     # Run the main function with the provided file path
     profile_code(main, file_path)

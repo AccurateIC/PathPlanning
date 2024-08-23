@@ -47,15 +47,20 @@ class PostPlanner:
 
         return np.array(refined_path)
 
-    def get_b_spline(self, degree, num_points=500):
+    def get_b_spline(self, degree,num_points=500):
+        
         x = self.reduced_path_points[:, 0]
         y = self.reduced_path_points[:, 1]
-    
+        start = self.reduced_path_points[0]
+        end = self.reduced_path_points[-1]
+        distance = np.linalg.norm(np.array(start) - np.array(end))
+
+        num_points = distance * 2
         if len(x) >= 4:
             # Force the spline to pass through the first and last points
             tck, _ = splprep([x, y], s=self.spline_smoothness, k=degree, t=[0] + list(np.linspace(0, 1, len(x)-2)) + [1])
             
-            u_fine = np.linspace(0, 1, num_points)
+            u_fine = np.linspace(0, 1, int(num_points))
             x_fine, y_fine = splev(u_fine, tck)
             
             # Ensure first and last points are exactly the start and end points
@@ -174,8 +179,8 @@ class PostPlanner:
             ax.legend(fontsize=12)
             ax.set_xlabel('X', fontsize=14)
             ax.set_ylabel('Y', fontsize=14)
-            ax.set_xticks(range(0, 100, 10))
-            ax.set_yticks(range(0, 100, 10))
+            ax.set_xticks(range(0, 250, 10))
+            ax.set_yticks(range(0, 250, 10))
             ax.invert_yaxis()
             ax.grid(True, linestyle='--', alpha=0.6)
             ax.tick_params(axis='both', which='major', labelsize=12)
