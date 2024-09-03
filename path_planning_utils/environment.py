@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 class Environment:
     __slots__ = ['grid_h', 'grid_w', 'display', 'repulsion_offset', 'all_repulsions', 'current_obstacles_position', 'obstacles_path', 'collisions', 'grid', 'robot_x', 'robot_y', 'robot_dx', 'robot_dy', 'global_path', 'global_orientation', 'end_x', 'end_y', 'robot_path', 'robot_orientation']
 
-    def __init__(self, grid_h, grid_w, display=[], repulsion_offset=5):
+    def __init__(self, grid_h, grid_w, display=[], repulsion_offset=10):
         """
         Initializes the environment.
 
@@ -356,7 +356,28 @@ class Environment:
             self.put_repulsion(offset_repulsion_x, offset_repulsion_y, is_offset=True)
         
         self.put_repulsions(offset_x, offset_y, REPULSION_VALUES, is_offset=True)
+        
+    def __is_near_start_end(self, x, y):
+        """
+        Check if the given coordinate (x, y) is near either the robot's start position 
+        or the end position. A point is considered "near" if its Euclidean distance 
+        from either the start or end position is less than or equal to the threshold.
 
+        :param x: X-coordinate of the point to check.
+        :param y: Y-coordinate of the point to check.
+        :return: True if the point is near the start or end position, False otherwise.
+        """
+        # Calculate the Euclidean distance from the point (x, y) to the robot's start position
+        distance_to_start = math.sqrt((x - self.robot_x) ** 2 + (y - self.robot_y) ** 2)
+
+        # Calculate the Euclidean distance from the point (x, y) to the end position
+        distance_to_end = math.sqrt((x - self.end_x) ** 2 + (y - self.end_y) ** 2)
+        
+        # Check if the point is near the start or end position by comparing the distances to the threshold
+        return distance_to_start <= 20 or distance_to_end <= 20
+
+    
+    
     def get_offset_repulsion(self, repulsion_x: list, repulsion_y: list) -> (list, list):
         """
         Calculates the offset repulsion points around the given repulsion points.
@@ -377,9 +398,11 @@ class Environment:
                         continue
                     new_x = x + dx
                     new_y = y + dy
+                    
                     if self.is_inside_grid(new_x, new_y):
-                        offset_x.append(new_x)
-                        offset_y.append(new_y)
+                        if not self.__is_near_start_end(new_x, new_y):
+                            offset_x.append(new_x)
+                            offset_y.append(new_y)
         
         return offset_x, offset_y
 
