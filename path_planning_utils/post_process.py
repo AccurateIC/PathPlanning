@@ -4,7 +4,7 @@ from scipy.interpolate import splprep, splev
 from rdp import rdp
 
 class PostPlanner:
-    def __init__(self, path_points, repulsions_x, repulsions_y, epsilon=1.0, spline_smoothness=5, spline_degree=2, max_distance=5):
+    def __init__(self, path_points, repulsions_x, repulsions_y, epsilon=1.0, spline_smoothness=5, spline_degree=2, max_distance=5,target_distance=0.1):
         self.path_points = np.array(path_points)
         self.repulsions_x = np.array(repulsions_x)
         self.repulsions_y = np.array(repulsions_y)
@@ -12,9 +12,28 @@ class PostPlanner:
         self.spline_smoothness = spline_smoothness
         self.spline_degree = spline_degree
         self.max_distance = max_distance
-        self.reduced_path_points = self.simplify_path()
+        self.target_distance =target_distance
+        # self.reduced_path_points = self.simplify_path()
+        self.reduced_path_points = self.interpolate_path(self.path_points)
         self.closest_spline_point = None
         self.closest_repulsion_point = None
+
+    def interpolate_path(self, path_points):
+        new_path = [path_points[0]]
+        for i in range(1, len(path_points)):
+            start = path_points[i - 1]
+            end = path_points[i]
+            segment_length = np.linalg.norm(end - start)
+            num_points = int(segment_length // self.target_distance)
+
+            if num_points > 0:
+                for j in range(1, num_points + 1):
+                    interpolated_point = start + j * (end - start) / (num_points + 1)
+                    new_path.append(interpolated_point)
+
+            new_path.append(end)
+        
+        return np.array(new_path)
 
     def find_closest_point(self, midpoint):
         distances = np.sqrt((self.path_points[:, 0] - midpoint[0])**2 + (self.path_points[:, 1] - midpoint[1])**2)
